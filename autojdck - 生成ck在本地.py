@@ -151,14 +151,14 @@ async def main():  # 打开并读取配置文件，主程序
     configfile = 'jdck.config'     #配置文件名称为
     if not os.path.exists(configfile):     #看看有没有配置文件
         configdata = [
+    'Displaylogin=1  #是否显示登录操作，1显示，0不显示\n',
+    '\n',
+    '********上面是配置参数，下面保存账户密码********\n',
+    '\n',
     '备注1#登录账号1#登录密码\n',
     '备注2#登录账号2#登录密码\n',
     '备注3#登录账号3#登录密码\n'
     '账号格式以此类推\n',
-    '\n',
-    '下面是配置参数\n',
-    '\n',
-    'Displaylogin=1  #是否显示登录操作，1显示，0不显示\n',
 ]
         with open(configfile, 'w', encoding='utf-8') as file:     #打开配置文件
             file.writelines(configdata)       #写入configdata的内容到配置文件
