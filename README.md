@@ -18,19 +18,18 @@
 1. 安装必要的依赖：
    ```python
    import asyncio  # 异步I/O操作库
-   import random  # 用于模拟延迟输入
+   import random  #用于模拟延迟输入
    from re import T  # 随机数生成库
    import cv2  # OpenCV库，用于图像处理
    from pyppeteer import launch  # pyppeteer库，用于自动化控制浏览器
+   import aiohttp   #用于请求青龙
    from urllib import request  # 用于网络请求，这里主要用来下载图片
-   from PIL import Image  # 用于图像处理
-   import re  # 读取配置文件
-   import os  # 读取配置文件
-   from datetime import datetime  # 获取时间
-下载脚本文件并将其放置在你的项目目录中。
+   from PIL import Image  #用于图像处理
+   import os  #读取配置文件
+
 
 配置登录信息：
-打开生成的配置文件jdck.config，根据需要修改其中的账号、密码等登录信息。
+打开生成的配置文件jdck.config，根据需要修改其中的账号、密码等登录以及青龙对接容器等。
 
 运行脚本：
 运行脚本或者双击运行下载的exe程序即可自动模拟操作京东滑块验证。脚本会自动加载浏览器并完成滑块验证。
