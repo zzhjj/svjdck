@@ -228,7 +228,7 @@ async def main():  # 打开并读取配置文件，主程序
     configfile = 'jdck.config'     #配置文件名称为
     if not os.path.exists(configfile):     #看看有没有配置文件
         configdata = [
-    'Displaylogin=1  #是否显示登录操作，1显示，0不显示\n',
+    'Displaylogin=0  #是否显示登录操作，1显示，0不显示\n',
     'qlip=http://192.168.1.1:5700\n',
     'client_id=*******\n',
     'client_secret=*******\n',
@@ -266,5 +266,6 @@ async def main():  # 打开并读取配置文件，主程序
                         print("当前配置不显示登录操作，如果需要显示在配置文件中增加参数Displaylogin=1")
                     await validate_logon(notes, usernum, passwd, qltoken)    #登录操作，写入ck到文件
             print("完成全部登录")
+            await asyncio.sleep(10)  # 等待6秒，等待
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
