@@ -1,37 +1,114 @@
 # 第一次使用会有进度条加载，等待即可，后续无需等待
-# 需要opencv-python依赖
-# 需要pyppeteer依赖
-# 需要Pillow依赖
-# 需要asyncio依赖
-# 版本：2024.2.17
+# 需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp依赖
+# 版本：2024.2.19
 import asyncio  # 异步I/O操作库
-import random
+import random  #用于模拟延迟输入
 from re import T  # 随机数生成库
 import cv2  # OpenCV库，用于图像处理
 from pyppeteer import launch  # pyppeteer库，用于自动化控制浏览器
+import aiohttp   #用于请求青龙
 from urllib import request  # 用于网络请求，这里主要用来下载图片
 from PIL import Image  #用于图像处理
-import re  #读取配置文件
 import os  #读取配置文件
-from datetime import datetime #获取时间
 
+async def initql(configfile):        #初始化青龙并获取青龙的token
+    global qlip  # 声明这个是全局变量
+    client_id = None   #初始化变量
+    client_secret = None   #初始化变量
 
-async def typeck(page, notes):  #写入ck函数
-    cookies = await page.cookies()
-    pt_key = ''
-    pt_pin = ''
-    for cookie in cookies:
-        if cookie['name'] == 'pt_key':
-            pt_key = cookie['value']
-        elif cookie['name'] == 'pt_pin':
-            pt_pin = cookie['value']
-    # 打印 pt_key 和 pt_pin 值
-    print('{} 登录成功 pt_key={};pt_pin={};'.format(notes, pt_key, pt_pin))
-    await page.waitFor(1000)  # 登录成功后等待1秒
-    with open('jdck.txt', 'a+', encoding='utf-8') as file:    #打开文件
-        content = '{}   {}   pt_key={};pt_pin={};\n'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), notes, pt_key, pt_pin)   # 构造要写入文件的字符串
-        file.write(content)  # 写入文件
+    try:
+        with open(configfile, 'r', encoding='utf-8') as file:    #用UTF-8编码方式打开配置文件
+            lines = file.readlines()           #遍历每一行
+            for line in lines:
+                if 'qlip=' in line:
+                    qlip = line.split('qlip=')[-1].strip()         #找配置文件中qlip=的值并赋予qlip
+                elif 'client_id=' in line:
+                    client_id = line.split('client_id=')[-1].strip()       #同上
+                elif 'client_secret=' in line:
+                    client_secret = line.split('client_secret=')[-1].strip()     #同上
 
+        if not qlip or not client_id or not client_secret:         #如果没有三个参数变量没有值，就报下面的错误，单个检测报错
+            if not qlip:
+                print('青龙IP配置出错，请确认配置文件')
+            if not client_id:
+                print('青龙client_id配置出错，请确认配置文件')
+            if not client_secret:
+                print('青龙client_secret配置出错，请确认配置文件')
+            raise SystemExit
+
+        async with aiohttp.ClientSession() as session:                #获取青龙的token
+            async with session.get(f"{qlip}/open/auth/token?client_id={client_id}&client_secret={client_secret}") as response:
+                dicts = await response.json()
+            return dicts['data']['token']
+    except Exception as e:
+        print(f"读取青龙配置时发生异常，请确认配置文件：{e}")
+        raise SystemExit
+
+async def qlenvs(qltoken):   #获取青龙全部ck
+    try:
+        async with aiohttp.ClientSession() as session:                              # 异步操作命令
+            url = f"{qlip}/open/envs?searchValue="                   #设置设置连接
+            headers = {'Authorization': 'Bearer ' + qltoken}                         #设置api的headers请求头
+            async with session.get(url, headers=headers) as response:                              #获取变量请求
+                rjson = await response.json()                             #解析返回的json数据
+                if rjson['code'] == 200:                                #如果返回code200,根据青龙api文档
+                    jd_cookie_data = [env for env in rjson['data'] if env.get('name') == 'JD_COOKIE']      #选出所有JD_COOKIE的名的变量
+                    return jd_cookie_data                              #返回选出来的值给整个函数
+                else:
+                    print(f"获取环境变量失败：{rjson['message']}")
+    except Exception as e:
+        print(f"获取环境变量失败：{str(e)}")
+
+async def SubmitCK(page, notes, qltoken):  #提交ck函数
+    cookies = await page.cookies()                             #设置cookeis变量，用于下面的搜索
+    pt_key = ''                             #初始化变量
+    pt_pin = ''                             #初始化变量
+    for cookie in cookies:                              #找所有网页所有的cookie数据
+        if cookie['name'] == 'pt_key':                             #找到pt_key的值
+            pt_key = cookie['value']                             #把值设置到变量pt_key
+        elif cookie['name'] == 'pt_pin':                             #找到pt_pin的值
+            pt_pin = cookie['value']                             #把值设置到变量pt_pin
+    print('{} 登录成功 pt_key={};pt_pin={};'.format(notes, pt_key, pt_pin))    # 打印 pt_key 和 pt_pin 值
+    found_ddhhs = False                             #初始化循环变量，用于后面找不到变量的解决方式
+    for env in envs:
+        if pt_pin in env["value"]:      #在所有变量值中找pt_pin，找到执行下面的更新ck
+            envid = env["id"]                             #把找到的id设为envid的变量值
+            remarks = env["remarks"]                             #同上
+            found_ddhhs = True                             #把变量设为True，停下循环
+            data = {
+                'name': "JD_COOKIE",
+                'value': f"pt_key={pt_key};pt_pin={pt_pin};",
+                "remarks": remarks,
+                "id": envid,
+            }                             #提交青龙的数据
+            async with aiohttp.ClientSession() as session:                             #下面是提交
+                url = f"{qlip}/open/envs"
+                async with session.put(url, headers={'Authorization': 'Bearer ' + qltoken}, json=data) as response:
+                    rjson = await response.json()
+                    if rjson['code'] == 200:
+                        print(f"更新{notes}环境变量成功")
+                        return True
+                    else:
+                        print(f"更新{notes}环境变量失败：{rjson['message']}")
+                        return False
+    if not found_ddhhs:          #如果没找到pt_pin，执行下面的新建ck，以下同上，只是新建不是更新
+        data = [
+            {
+                'name': "JD_COOKIE",
+                'value': f"pt_key={pt_key};pt_pin={pt_pin};",
+                "remarks": notes,
+            }
+        ]
+        async with aiohttp.ClientSession() as session:
+            url = f"{qlip}/open/envs"
+            async with session.post(url, headers={'Authorization': 'Bearer ' + qltoken}, json=data) as response:
+                rjson = await response.json()
+                if rjson['code'] == 200:
+                    print(f"新建{notes}环境变量成功")
+                    return True
+                else:
+                    print(f"新建{notes}环境变量失败：{rjson['message']}")
+                    return False
 
 async def get_distance():   #图形处理函数
     img = cv2.imread('image.png', 0)  # 读取全屏截图，灰度模式
@@ -84,7 +161,7 @@ async def verification(page, notes, usernum, passwd):
         #browser = await page.browser()  
         #await browser.close()  #关闭浏览器
         await validate_logon(notes, usernum, passwd)
-        #raise e  # 将异常重新抛出，以便上层代码处理
+        raise e  # 将异常重新抛出，以便上层代码处理
 
 async def duanxin(page, notes, usernum, passwd):   #短信验证函数
     if await page.J('.mode-btn.voice-mode'):  #检查是不是要短信验证
@@ -104,7 +181,7 @@ async def duanxin(page, notes, usernum, passwd):   #短信验证函数
         await elements[0].click()  # 点击元素
         await page.waitFor(2000)  # 等2秒
 
-async def validate_logon(notes, usernum, passwd):
+async def validate_logon(notes, usernum, passwd, qltoken):
     print(f"正在登录{notes}的账号")
     browser = await launch({
         'headless': WebDisplay,  # 设置为非无头模式，即可视化浏览器界面
@@ -119,14 +196,14 @@ async def validate_logon(notes, usernum, passwd):
     await page.type('#pwd', passwd, {'delay': random.randint(100, 151)})  # 输入密码，模拟键盘输入延迟
     await page.waitFor(100)  # 等待
     await page.click('.policy_tip-checkbox')  # 点击同意
-    await page.waitFor(141)  # 等待  
+    await page.waitFor(141)  # 等待
     await page.click('.btn.J_ping.btn-active')  # 点击登录按钮
     await page.waitFor(1000)  # 等待3秒，等待滑块验证出现
 
     should_break = False  #定义下面不停循环
     while True:
         if await page.J ('#searchWrapper'):  # 检查是否登录成功
-            await typeck(page, notes)  #调用写入ck到txt文件
+            await SubmitCK(page, notes, qltoken)  #提交ck
             await browser.close()  #关闭浏览器
             break
         else:
@@ -152,6 +229,9 @@ async def main():  # 打开并读取配置文件，主程序
     if not os.path.exists(configfile):     #看看有没有配置文件
         configdata = [
     'Displaylogin=1  #是否显示登录操作，1显示，0不显示\n',
+    'qlip=http://192.168.1.1:5700\n',
+    'client_id=*******\n',
+    'client_secret=*******\n',
     '\n',
     '********上面是配置参数，下面保存账户密码********\n',
     '\n',
@@ -164,6 +244,9 @@ async def main():  # 打开并读取配置文件，主程序
             file.writelines(configdata)       #写入configdata的内容到配置文件
             print('已在当前脚本目录下生成了配置文件，请修改后再运行')
     else:
+        global envs
+        qltoken = await initql(configfile)   #初始化青龙获取青龙ck
+        envs = await qlenvs(qltoken)   #获取青龙环境变量(仅JC_COOKIE)
         with open(configfile, 'r', encoding='utf-8') as file:   # 对于文件中的每一行
             for line in file:    # 去除行尾的换行符
                 line = line.strip()    
@@ -171,19 +254,17 @@ async def main():  # 打开并读取配置文件，主程序
                 if len(userdata) == 3:   #分为三段，如果不满足3段，则跳过此行
                     notes, usernum, passwd = userdata     # 解包列表到三个变量，并按照指定格式打印
                     try:
-                        global WebDisplay
-                        WebDisplay = True
+                        global WebDisplay                             #设置为全局变量
+                        WebDisplay = True                             #默认不显示登录
                         with open(configfile, 'r', encoding='utf-8') as file:
                             for line in file:
-                                if 'Displaylogin=1' in line:
-                                    WebDisplay = False
+                                if 'Displaylogin=1' in line:                             #如果配置文件有Displaylogin=1这个东西
+                                    WebDisplay = False                             #就变更成显示登录操作
                                     print('当前模式：显示登录操作')
                                     break
                     except FileNotFoundError:
                         print("当前配置不显示登录操作，如果需要显示在配置文件中增加参数Displaylogin=1")
-                    await validate_logon(notes, usernum, passwd)    #登录操作，写入ck到文件
-            print("ck已经记录在jdck.txt文件中")
-
-
+                    await validate_logon(notes, usernum, passwd, qltoken)    #登录操作，写入ck到文件
+            print("完成全部登录")
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
