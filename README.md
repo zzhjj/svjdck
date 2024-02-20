@@ -21,7 +21,7 @@
 ## 使用方法
 
 1. 安装必要的依赖：
-  需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp依赖
+  需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp依赖，其它未列出的请参考源码头部。
 
 
 ## 配置登录信息：
