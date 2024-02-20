@@ -11,6 +11,8 @@ from urllib import request  # 用于网络请求，这里主要用来下载图�
 from PIL import Image  #用于图像处理
 import os  #读取配置文件
 
+os.environ['PYPPETEER_DOWNLOAD_HOST'] = 'http://npm.taobao.org/mirrors'  # 设置镜像源
+
 async def initql(configfile):        #初始化青龙并获取青龙的token
     global qlip  # 声明这个是全局变量
     client_id = None   #初始化变量
