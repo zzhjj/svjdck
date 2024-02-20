@@ -1,6 +1,6 @@
 # 第一次使用会有进度条加载，等待即可，后续无需等待
 # 需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp依赖
-# 版本：2024.2.19
+# 版本：2024.2.20
 import asyncio  # 异步I/O操作库
 import random  #用于模拟延迟输入
 from re import T  # 随机数生成库
@@ -41,7 +41,7 @@ async def initql(configfile):        #初始化青龙并获取青龙的token
                 dicts = await response.json()
             return dicts['data']['token']
     except Exception as e:
-        print(f"读取青龙配置时发生异常，请确认配置文件：{e}")
+        print(f"连接青龙发生异常，请确认配置文件：{e}")
         raise SystemExit
 
 async def qlenvs(qltoken):   #获取青龙全部ck
@@ -86,8 +86,18 @@ async def SubmitCK(page, notes, qltoken):  #提交ck函数
                 async with session.put(url, headers={'Authorization': 'Bearer ' + qltoken}, json=data) as response:
                     rjson = await response.json()
                     if rjson['code'] == 200:
-                        print(f"更新{notes}环境变量成功")
-                        return True
+                        url2 = f"{qlip}/open/envs/enable"
+                        data2 = [
+                            envid
+                        ]
+                        async with session.put(url2, headers={'Authorization': 'Bearer ' + qltoken}, json=data2) as response:
+                            rjson2 = await response.json()
+                            if rjson2['code'] == 200:
+                                print(f"更新{notes}环境变量成功")
+                                return True
+                            else:
+                                print(f"启用{notes}环境变量失败：{rjson['message']}")
+                                return False
                     else:
                         print(f"更新{notes}环境变量失败：{rjson['message']}")
                         return False
@@ -124,7 +134,7 @@ async def get_distance():   #图形处理函数
     distance = value + 10 # 计算实际滑动距离，这里根据实际页面比例进行调整，+10像素校准算法这傻逼玩意
     return distance
 
-async def verification(page, notes, usernum, passwd):
+async def verification(page, notes, usernum, passwd, browser):
     try:
         await page.waitForSelector('#cpc_img')
         image_src = await page.Jeval('#cpc_img', 'el => el.getAttribute("src")')  # 获取滑块背景图的地址
@@ -158,12 +168,11 @@ async def verification(page, notes, usernum, passwd):
     except Exception as e:
         print(f"滑块验证出错，1秒后自动关闭重试")
         await page.waitFor(1000)  # 等1秒
-        #browser = await page.browser()  
-        #await browser.close()  #关闭浏览器
+        await browser.close()  #关闭浏览器
         await validate_logon(notes, usernum, passwd)
         raise e  # 将异常重新抛出，以便上层代码处理
 
-async def duanxin(page, notes, usernum, passwd):   #短信验证函数
+async def duanxin(page, notes, usernum, passwd, browser):   #短信验证函数
     if await page.J('.mode-btn.voice-mode'):  #检查是不是要短信验证
         await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/span/a')   #等手机短信认证元素
         elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/span/a')  # 选择元素
@@ -171,7 +180,7 @@ async def duanxin(page, notes, usernum, passwd):   #短信验证函数
         await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/button')   #等获取验证码元素
         elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/button')  # 选择元素
         await elements[0].click()  # 点击元素
-        await verification(page, notes, usernum, passwd)    #过滑块
+        await verification(page, notes, usernum, passwd, browser)    #过滑块
         code = input("请输入验证码: ")   #交互输入验证码
         await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
         input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
@@ -188,7 +197,7 @@ async def validate_logon(notes, usernum, passwd, qltoken):
         'args': ['--no-sandbox', '--disable-setuid-sandbox'],  # 启动参数，禁用沙箱模式，设置窗口大小
     })
     page = await browser.newPage()  # 打开新页面
-    #await page.setViewport({'width': 1366, 'height': 768})  # 设置视窗大小
+    await page.setViewport({'width': 360, 'height': 640})  # 设置视窗大小
     await page.goto('https://plogin.m.jd.com/login/login?appid=300&returnurl=https%3A%2F%2Fm.jd.com%2F&source=wq_passport')  # 访问京东登录页面
     await page.waitFor(1000)  # 等待1秒，等待页面加载
     await page.click('.J_ping.planBLogin')  # 点击密码登录
@@ -211,7 +220,7 @@ async def validate_logon(notes, usernum, passwd, qltoken):
                 while True:
                     choice = input("需要进行短信验证，回1进行验证，回2不验证：\n")
                     if choice == '1':
-                        await duanxin(page, notes, usernum, passwd)    #调用短信登录函数
+                        await duanxin(page, notes, usernum, passwd, browser)    #调用短信登录函数
                         break
                     elif choice == '2':
                         print("不进行验证，跳过此账户登录")
@@ -220,12 +229,12 @@ async def validate_logon(notes, usernum, passwd, qltoken):
                     else:
                         ("无效的选择")
             else:
-                await verification(page, notes, usernum, passwd)  #检测是否要过滑块
+                await verification(page, notes, usernum, passwd, browser)  #检测是否要过滑块
         if should_break:  #检查是否停止循环
             break
                 
 async def main():  # 打开并读取配置文件，主程序
-    configfile = 'jdck.config'     #配置文件名称为
+    configfile = 'jdck.ini'     #配置文件名称为
     if not os.path.exists(configfile):     #看看有没有配置文件
         configdata = [
     'Displaylogin=0  #是否显示登录操作，1显示，0不显示\n',
@@ -266,6 +275,6 @@ async def main():  # 打开并读取配置文件，主程序
                         print("当前配置不显示登录操作，如果需要显示在配置文件中增加参数Displaylogin=1")
                     await validate_logon(notes, usernum, passwd, qltoken)    #登录操作，写入ck到文件
             print("完成全部登录")
-            await asyncio.sleep(10)  # 等待6秒，等待
+            await asyncio.sleep(6)  # 等待6秒，等待
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
