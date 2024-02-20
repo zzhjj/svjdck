@@ -275,6 +275,8 @@ async def main():  # 打开并读取配置文件，主程序
                         print("当前配置不显示登录操作，如果需要显示在配置文件中增加参数Displaylogin=1")
                     await validate_logon(notes, usernum, passwd, qltoken)    #登录操作，写入ck到文件
             print("完成全部登录")
+            os.remove('image.png') if os.path.exists('image.png') else None     #删除缓存照片
+            os.remove('template.png') if os.path.exists('template.png') else None     #删除缓存照片
             await asyncio.sleep(6)  # 等待6秒，等待
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
