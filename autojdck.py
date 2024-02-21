@@ -11,45 +11,6 @@ from urllib import request  # 用于网络请求，这里主要用来下载图�
 from PIL import Image  #用于图像处理
 import os  #读取配置文件
 import platform  #判断系统类型
-import zipfile  #用于解压文件
-
-async def download_file(url, file_path):       #初始化下载
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            with open(file_path, 'wb') as file:
-                while True:
-                    chunk = await response.content.read(1024)
-                    if not chunk:
-                        break
-                    file.write(chunk)
-async def init_chrome():        #判断chrome是否存在，不存在则下载，仅针对windows
-    if platform.system() == 'Windows':
-        chrome_dir = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local', 'pyppeteer', 'pyppeteer', 'local-chromium', '588429', 'chrome-win32')
-        chrome_exe = os.path.join(chrome_dir, 'chrome.exe')
-        chmod_dir = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local', 'pyppeteer', 'pyppeteer', 'local-chromium', '588429', 'chrome-win32', 'chrome-win')
-        if os.path.exists(chrome_exe):
-            return
-        else:
-            print('判断为第一次使用，正在下载chrome浏览器....')
-            chromeurl = 'https://cdn.npmmirror.com/binaries/chromium-browser-snapshots/Win_x64/848005/chrome-win.zip'        #定义下载地址
-            target_file = 'chrome-win.zip'                                                          #定义下载文件名
-            await download_file(chromeurl, target_file)           #下载
-            with zipfile.ZipFile(target_file, 'r') as zip_ref:
-                zip_ref.extractall(chrome_dir)
-            os.remove(target_file)
-            print('下载完成')
-            for item in os.listdir(chmod_dir):              #移动所有文件
-                source_item = os.path.join(chmod_dir, item)
-                destination_item = os.path.join(chrome_dir, item)
-                os.rename(source_item, destination_item)
-            await asyncio.sleep(1)  # 等待1秒，等待
-    elif platform.system() == 'Linux':
-        return 'linux'
-    elif platform.system() == 'Darwin':
-        return 'mac'
-    else:
-        return 'unknown'
-
 
 async def initql(configfile):        #初始化青龙并获取青龙的token
     global qlip  # 声明这个是全局变量
