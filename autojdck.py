@@ -10,8 +10,46 @@ import aiohttp   #用于请求青龙
 from urllib import request  # 用于网络请求，这里主要用来下载图片
 from PIL import Image  #用于图像处理
 import os  #读取配置文件
+import platform  #判断系统类型
+import zipfile  #用于解压文件
 
-os.environ['PYPPETEER_DOWNLOAD_HOST'] = 'http://npm.taobao.org/mirrors'  # 设置镜像源
+async def download_file(url, file_path):       #初始化下载
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            with open(file_path, 'wb') as file:
+                while True:
+                    chunk = await response.content.read(1024)
+                    if not chunk:
+                        break
+                    file.write(chunk)
+async def init_chrome():        #判断chrome是否存在，不存在则下载，仅针对windows
+    if platform.system() == 'Windows':
+        chrome_dir = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local', 'pyppeteer', 'pyppeteer', 'local-chromium', '588429', 'chrome-win32')
+        chrome_exe = os.path.join(chrome_dir, 'chrome.exe')
+        chmod_dir = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local', 'pyppeteer', 'pyppeteer', 'local-chromium', '588429', 'chrome-win32', 'chrome-win')
+        if os.path.exists(chrome_exe):
+            return
+        else:
+            print('判断为第一次使用，正在下载chrome浏览器....')
+            chromeurl = 'https://cdn.npmmirror.com/binaries/chromium-browser-snapshots/Win_x64/848005/chrome-win.zip'        #定义下载地址
+            target_file = 'chrome-win.zip'                                                          #定义下载文件名
+            await download_file(chromeurl, target_file)           #下载
+            with zipfile.ZipFile(target_file, 'r') as zip_ref:
+                zip_ref.extractall(chrome_dir)
+            os.remove(target_file)
+            print('下载完成')
+            for item in os.listdir(chmod_dir):              #移动所有文件
+                source_item = os.path.join(chmod_dir, item)
+                destination_item = os.path.join(chrome_dir, item)
+                os.rename(source_item, destination_item)
+            await asyncio.sleep(1)  # 等待1秒，等待
+    elif platform.system() == 'Linux':
+        return 'linux'
+    elif platform.system() == 'Darwin':
+        return 'mac'
+    else:
+        return 'unknown'
+
 
 async def initql(configfile):        #初始化青龙并获取青龙的token
     global qlip  # 声明这个是全局变量
@@ -257,10 +295,11 @@ async def main():  # 打开并读取配置文件，主程序
 ]
         with open(configfile, 'w', encoding='utf-8') as file:     #打开配置文件
             file.writelines(configdata)       #写入configdata的内容到配置文件
-            await asyncio.sleep(10)  # 等待6秒，等待
             print('已在当前脚本目录下生成了配置文件，请修改后再运行')
+            await asyncio.sleep(10)  # 等待6秒，等待
     else:
         global envs
+        await init_chrome()     #初始化chrome
         qltoken = await initql(configfile)   #初始化青龙获取青龙ck
         envs = await qlenvs(qltoken)   #获取青龙环境变量(仅JC_COOKIE)
         with open(configfile, 'r', encoding='utf-8') as file:   # 对于文件中的每一行
