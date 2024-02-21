@@ -32,10 +32,13 @@ async def initql(configfile):        #初始化青龙并获取青龙的token
         if not qlip or not client_id or not client_secret:         #如果没有三个参数变量没有值，就报下面的错误，单个检测报错
             if not qlip:
                 print('青龙IP配置出错，请确认配置文件')
+                await asyncio.sleep(10)  # 等待10秒，等待
             if not client_id:
                 print('青龙client_id配置出错，请确认配置文件')
+                await asyncio.sleep(10)  # 等待10秒，等待
             if not client_secret:
                 print('青龙client_secret配置出错，请确认配置文件')
+                await asyncio.sleep(10)  # 等待10秒，等待
             raise SystemExit
 
         async with aiohttp.ClientSession() as session:                #获取青龙的token
@@ -44,6 +47,7 @@ async def initql(configfile):        #初始化青龙并获取青龙的token
             return dicts['data']['token']
     except Exception as e:
         print(f"连接青龙发生异常，请确认配置文件：{e}")
+        await asyncio.sleep(10)  # 等待10秒，等待
         raise SystemExit
 
 async def qlenvs(qltoken):   #获取青龙全部ck
@@ -85,14 +89,14 @@ async def SubmitCK(page, notes, qltoken):  #提交ck函数
             }                             #提交青龙的数据
             async with aiohttp.ClientSession() as session:                             #下面是提交
                 url = f"{qlip}/open/envs"
-                async with session.put(url, headers={'Authorization': 'Bearer ' + qltoken}, json=data) as response:
+                async with session.put(url, headers={'Authorization': 'Bearer ' + qltoken}, json=data) as response:            #更新变量的api
                     rjson = await response.json()
                     if rjson['code'] == 200:
                         url2 = f"{qlip}/open/envs/enable"
                         data2 = [
                             envid
                         ]
-                        async with session.put(url2, headers={'Authorization': 'Bearer ' + qltoken}, json=data2) as response:
+                        async with session.put(url2, headers={'Authorization': 'Bearer ' + qltoken}, json=data2) as response:            #启用变量的api
                             rjson2 = await response.json()
                             if rjson2['code'] == 200:
                                 print(f"更新{notes}环境变量成功")
@@ -253,6 +257,7 @@ async def main():  # 打开并读取配置文件，主程序
 ]
         with open(configfile, 'w', encoding='utf-8') as file:     #打开配置文件
             file.writelines(configdata)       #写入configdata的内容到配置文件
+            await asyncio.sleep(10)  # 等待6秒，等待
             print('已在当前脚本目录下生成了配置文件，请修改后再运行')
     else:
         global envs
@@ -279,6 +284,6 @@ async def main():  # 打开并读取配置文件，主程序
             print("完成全部登录")
             os.remove('image.png') if os.path.exists('image.png') else None     #删除缓存照片
             os.remove('template.png') if os.path.exists('template.png') else None     #删除缓存照片
-            await asyncio.sleep(6)  # 等待6秒，等待
+            await asyncio.sleep(10)  # 等待10秒，等待
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
