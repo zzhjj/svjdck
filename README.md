@@ -29,7 +29,7 @@
 ## 配置登录信息：
 打开生成的配置文件jdck.ini，根据需要修改其中的账号、密码等登录以及青龙对接容器等。
    ```python
-Displaylogin=1  #是否显示登录操作，1显示，0不显示
+Displaylogin=0  #是否显示登录操作，1显示，0不显示
 qlip=http://192.168.1.1:5700
 client_id=*******
 client_secret=*******
