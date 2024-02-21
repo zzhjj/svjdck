@@ -260,7 +260,6 @@ async def main():  # 打开并读取配置文件，主程序
             await asyncio.sleep(10)  # 等待6秒，等待
     else:
         global envs
-        await init_chrome()     #初始化chrome
         qltoken = await initql(configfile)   #初始化青龙获取青龙ck
         envs = await qlenvs(qltoken)   #获取青龙环境变量(仅JC_COOKIE)
         with open(configfile, 'r', encoding='utf-8') as file:   # 对于文件中的每一行
