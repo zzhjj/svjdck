@@ -1,6 +1,6 @@
 # 第一次使用会有进度条加载，等待即可，后续无需等待
 # 需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp依赖
-# 版本：2024.2.20
+# 版本：2024.2.22
 import asyncio  # 异步I/O操作库
 import random  #用于模拟延迟输入
 from re import T  # 随机数生成库
