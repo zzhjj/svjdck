@@ -11,6 +11,45 @@ from urllib import request  # 用于网络请求，这里主要用来下载图�
 from PIL import Image  #用于图像处理
 import os  #读取配置文件
 import platform  #判断系统类型
+import zipfile  #用于解压文件
+
+async def download_file(url, file_path):       #初始化下载
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            with open(file_path, 'wb') as file:
+                while True:
+                    chunk = await response.content.read(1024)
+                    if not chunk:
+                        break
+                    file.write(chunk)
+async def init_chrome():        #判断chrome是否存在，不存在则下载，仅针对windows
+    if platform.system() == 'Windows':
+        chrome_dir = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local', 'pyppeteer', 'pyppeteer', 'local-chromium', '588429', 'chrome-win32')
+        chrome_exe = os.path.join(chrome_dir, 'chrome.exe')
+        chmod_dir = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local', 'pyppeteer', 'pyppeteer', 'local-chromium', '588429', 'chrome-win32', 'chrome-win32')
+        if os.path.exists(chrome_exe):
+            return
+        else:
+            print('判断为第一次使用，正在下载chrome浏览器....')
+            chromeurl = 'http://npm.taobao.org/mirrors/chromium-browser-snapshots/Win_x64/588429/chrome-win32.zip'        #定义下载地址
+            target_file = 'chrome-win.zip'                                                          #定义下载文件名
+            await download_file(chromeurl, target_file)           #下载
+            with zipfile.ZipFile(target_file, 'r') as zip_ref:
+                zip_ref.extractall(chrome_dir)
+            os.remove(target_file)
+            print('下载完成')
+            for item in os.listdir(chmod_dir):              #移动所有文件
+                source_item = os.path.join(chmod_dir, item)
+                destination_item = os.path.join(chrome_dir, item)
+                os.rename(source_item, destination_item)
+            await asyncio.sleep(1)  # 等待1秒，等待
+    elif platform.system() == 'Linux':
+        return 'linux'
+    elif platform.system() == 'Darwin':
+        return 'mac'
+    else:
+        return 'unknown'
+
 
 async def initql(configfile):        #初始化青龙并获取青龙的token
     global qlip  # 声明这个是全局变量
@@ -139,7 +178,7 @@ async def get_distance():   #图形处理函数
     distance = value + 10 # 计算实际滑动距离，这里根据实际页面比例进行调整，+10像素校准算法这傻逼玩意
     return distance
 
-async def verification(page, notes, usernum, passwd, browser):
+async def verification(page, notes, usernum, passwd, browser, qltoken):
     try:
         await page.waitForSelector('#cpc_img')
         image_src = await page.Jeval('#cpc_img', 'el => el.getAttribute("src")')  # 获取滑块背景图的地址
@@ -174,8 +213,8 @@ async def verification(page, notes, usernum, passwd, browser):
         print(f"滑块验证出错，1秒后自动关闭重试")
         await page.waitFor(1000)  # 等1秒
         await browser.close()  #关闭浏览器
-        await validate_logon(notes, usernum, passwd)
-        raise e  # 将异常重新抛出，以便上层代码处理
+        await validate_logon(notes, usernum, passwd, qltoken)
+        #raise e  # 将异常重新抛出，以便上层代码处理
 
 async def duanxin(page, notes, usernum, passwd, browser):   #短信验证函数
     if await page.J('.mode-btn.voice-mode'):  #检查是不是要短信验证
@@ -234,7 +273,7 @@ async def validate_logon(notes, usernum, passwd, qltoken):
                     else:
                         ("无效的选择")
             else:
-                await verification(page, notes, usernum, passwd, browser)  #检测是否要过滑块
+                await verification(page, notes, usernum, passwd, browser, qltoken)  #检测是否要过滑块
         if should_break:  #检查是否停止循环
             break
                 
@@ -260,6 +299,7 @@ async def main():  # 打开并读取配置文件，主程序
             await asyncio.sleep(10)  # 等待6秒，等待
     else:
         global envs
+        await init_chrome()     #初始化chrome
         qltoken = await initql(configfile)   #初始化青龙获取青龙ck
         envs = await qlenvs(qltoken)   #获取青龙环境变量(仅JC_COOKIE)
         with open(configfile, 'r', encoding='utf-8') as file:   # 对于文件中的每一行
