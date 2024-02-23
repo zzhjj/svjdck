@@ -1,6 +1,6 @@
 # 第一次使用会有进度条加载，等待即可，后续无需等待
 # 需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp依赖
-# 版本：2024.2.22
+# 版本：2024.2.23
 import asyncio  # 异步I/O操作库
 import random  #用于模拟延迟输入
 from re import T  # 随机数生成库
@@ -13,7 +13,35 @@ import os  #读取配置文件
 import platform  #判断系统类型
 import zipfile  #用于解压文件
 
-async def download_file(url, file_path):       #初始化下载
+async def print_message(message):     #初始化异步print
+    print(message)
+
+async def ifconfigfile():                           #判断有没有配置文件
+    global configfile            #配置文件全局变量
+    configfile = 'jdck.ini'     #配置文件名称为
+    if not os.path.exists(configfile):     #看看有没有配置文件
+        configdata = [
+'Displaylogin=0  #是否显示登录操作，1显示，0不显示\n',
+'qlip=http://192.168.1.1:5700\n',
+'client_id=*******\n',
+'client_secret=*******\n',
+'\n',
+'********登录代理设置，如无代理将下列内容删除********\n',
+'proxy_server=http://192.168.2.3:2233\n',
+'\n',
+'********上面是配置参数，下面保存账户密码********\n',
+'备注1#登录账号1#登录密码\n',
+'备注2#登录账号2#登录密码\n',
+'备注3#登录账号3#登录密码\n'
+'账号格式以此类推\n',
+]
+        with open(configfile, 'w', encoding='utf-8') as file:     #打开配置文件
+            file.writelines(configdata)       #写入configdata的内容到配置文件
+            print('已在当前脚本目录下生成了配置文件，请修改后再运行')
+            await asyncio.sleep(10)  # 等待10秒，等待
+            raise SystemExit
+
+async def download_file(url, file_path):       #初始化浏览器下载
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             with open(file_path, 'wb') as file:
@@ -22,6 +50,20 @@ async def download_file(url, file_path):       #初始化下载
                     if not chunk:
                         break
                     file.write(chunk)
+
+async def init_web_display():                           #初始化浏览器显示配置
+    global WebDisplay                             #设置为全局变量
+    WebDisplay = True                             #默认不显示登录
+    try:
+        with open(configfile, 'r', encoding='utf-8') as file:
+            for line in file:
+                if 'Displaylogin=1' in line:                             #如果配置文件有Displaylogin=1这个东西
+                    WebDisplay = False                             #就变更成显示登录操作
+                    print('当前模式：显示登录操作')
+                    break
+    except FileNotFoundError:
+        print("当前配置不显示登录操作，如果需要显示在配置文件中增加参数Displaylogin=1")
+
 async def init_chrome():        #判断chrome是否存在，不存在则下载，仅针对windows
     if platform.system() == 'Windows':
         chrome_dir = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local', 'pyppeteer', 'pyppeteer', 'local-chromium', '588429', 'chrome-win32')
@@ -87,7 +129,7 @@ async def initql(configfile):        #初始化青龙并获取青龙的token
         await asyncio.sleep(10)  # 等待10秒，等待
         raise SystemExit
 
-async def qlenvs(qltoken):   #获取青龙全部ck
+async def qlenvs():   #获取青龙全部jdck变量
     try:
         async with aiohttp.ClientSession() as session:                              # 异步操作命令
             url = f"{qlip}/open/envs?searchValue="                   #设置设置连接
@@ -102,7 +144,86 @@ async def qlenvs(qltoken):   #获取青龙全部ck
     except Exception as e:
         print(f"获取环境变量失败：{str(e)}")
 
-async def SubmitCK(page, notes, qltoken):  #提交ck函数
+
+
+
+
+
+
+
+
+async def logon_main():             #读取配置文件账户密码，登录
+    with open(configfile, 'r', encoding='utf-8') as file:   # 读取账号密码
+        for line in file:    # 去除行尾的换行符
+            line = line.strip()    
+            userdata = line.split('#')    # 使用'#'分割字符串
+            if len(userdata) == 3:   #分为三段，如果不满足3段，则跳过此行
+                notes, usernum, passwd = userdata     # 解包列表到三个变量，并按照指定格式打印
+                await validate_logon(notes, usernum, passwd)
+
+async def validate_logon(notes, usernum, passwd):                                         #登录操作
+    print(f"正在登录{notes}的账号")
+    browser = await launch({
+        'headless': WebDisplay,  # 设置为非无头模式，即可视化浏览器界面
+        'args': argszhi,
+    })
+    page = await browser.newPage()  # 打开新页面
+    await page.setViewport({'width': 360, 'height': 640})  # 设置视窗大小
+    await page.goto('https://plogin.m.jd.com/login/login?appid=300&returnurl=https%3A%2F%2Fm.jd.com%2F&source=wq_passport')  # 访问京东登录页面
+    await typeuser(page, usernum, passwd)        #进行账号密码登录
+
+    should_break = False  #定义下面不停循环
+    while True:
+        try:                              #找ck
+            if await page.J ('#searchWrapper'):
+                await SubmitCK(page, notes)  #提交ck
+                await browser.close()  #关闭浏览器
+                break
+        except Exception as e:
+            pass
+
+        try:                              #检查是不是要短信验证
+            if await page.J('.mode-btn.voice-mode'):  
+                while True:
+                    choice = input("需要进行短信验证，回1进行验证，回2不验证：\n")
+                    if choice == '1':
+                        await duanxin1(page)    #调用短信登录函数
+                        break
+                    elif choice == '2':
+                        print("不进行验证，跳过此账户登录")
+                        should_break = True
+                        break
+                    else:
+                        print("无效的选择")
+        except Exception as e:
+            pass
+
+        try:                              #输入短信验证
+            if await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input'):
+                await duanxin2(page) 
+        except Exception as e:
+            pass
+
+        try:                              #检测是否要过滑块
+            if await page.xpath('//*[@id="captcha_modal"]/div/div[3]/div'):
+                await verification(page)  #过滑块
+        except Exception as e:
+            pass
+
+        if should_break:  #检查是否停止循环
+            break
+
+async def typeuser(page, usernum, passwd):         #输入账户密码
+    await page.waitForSelector('.J_ping.planBLogin')  # 等待元素出现
+    await page.click('.J_ping.planBLogin')  # 点击密码登录
+    await page.type('#username', usernum, {'delay': random.randint(60, 121)})  # 输入用户名，模拟键盘输入延迟
+    await page.type('#pwd', passwd, {'delay': random.randint(100, 151)})  # 输入密码，模拟键盘输入延迟
+    await page.waitFor(random.randint(100, 2000))      #随机等待1-2秒
+    await page.click('.policy_tip-checkbox')  # 点击同意
+    await page.waitFor(random.randint(100, 2000))      #随机等待1-2秒
+    await page.click('.btn.J_ping.btn-active')  # 点击登录按钮
+    await page.waitFor(random.randint(100, 2000))      #随机等待1-2秒
+async def SubmitCK(page, notes):  #提交ck
     cookies = await page.cookies()                             #设置cookeis变量，用于下面的搜索
     pt_key = ''                             #初始化变量
     pt_pin = ''                             #初始化变量
@@ -163,6 +284,56 @@ async def SubmitCK(page, notes, qltoken):  #提交ck函数
                     print(f"新建{notes}环境变量失败：{rjson['message']}")
                     return False
 
+async def duanxin1(page):   #短信验证函数
+        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/span/a')   #等手机短信认证元素
+        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
+        elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/span/a')  # 选择元素
+        await elements[0].click()  # 点击元素
+        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/button')   #等获取验证码元素
+        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
+        elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/button')  # 选择元素
+        await elements[0].click()  # 点击元素
+
+async def duanxin2(page):              #输入短信验证码
+    if await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input'):
+        code = input("请输入验证码: ")   #交互输入验证码
+        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
+        input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
+        await input_elements[0].type(code)       # 输入验证码
+        await page.waitForXPath('//*[@id="app"]/div/div[2]/a[1]')   #等登录按钮元素
+        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
+        elements = await page.xpath('//*[@id="app"]/div/div[2]/a[1]')  # 选择元素
+        await elements[0].click()  # 点击元素
+        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
+
+async def verification(page):            #过滑块
+    await page.waitForSelector('#cpc_img')
+    image_src = await page.Jeval('#cpc_img', 'el => el.getAttribute("src")')  # 获取滑块背景图的地址
+    request.urlretrieve(image_src, 'image.png')  # 下载滑块背景图
+    width = await page.evaluate('() => { return document.getElementById("cpc_img").clientWidth; }')  #获取网页的图片尺寸
+    height = await page.evaluate('() => { return document.getElementById("cpc_img").clientHeight; }')   #获取网页的图片尺寸
+    image = Image.open('image.png')  #打开图像
+    resized_image = image.resize((width, height))# 调整图像尺寸
+    resized_image.save('image.png')# 保存调整后的图像
+    template_src = await page.Jeval('#small_img', 'el => el.getAttribute("src")')  # 获取滑块图片的地址
+    request.urlretrieve(template_src, 'template.png')  # 下载滑块图片
+    width = await page.evaluate('() => { return document.getElementById("small_img").clientWidth; }')  #获取网页的图片尺寸
+    height = await page.evaluate('() => { return document.getElementById("small_img").clientHeight; }')   #获取网页的图片尺寸
+    image = Image.open('template.png')  #打开图像
+    resized_image = image.resize((width, height))# 调整图像尺寸
+    resized_image.save('template.png')# 保存调整后的图像
+    await page.waitFor(100)  # 等待1秒，确保图片处理完成
+    el = await page.querySelector("#captcha_modal > div > div.captcha_footer > div > img") # 定位到滑块按钮
+    box = await el.boundingBox() #获取滑块按钮信息
+    distance = await get_distance()  # 调用前面定义的get_distance函数计算滑块移动距离
+    await page.mouse.move(box['x'] + 10 , box['y'] + 10)
+    await page.mouse.down()  # 模拟鼠标按下
+    await page.mouse.move(box['x'] + distance + random.uniform(8, 25), box['y'], {'steps': 10})  # 模拟鼠标拖动，考虑到实际操作中可能存在的轻微误差和波动，加入随机偏移量
+    await page.waitFor(random.randint(100, 500))  # 随机等待一段时间，模仿人类操作的不确定性
+    await page.mouse.move(box['x'] + distance, box['y'], {'steps': 10})  # 继续拖动滑块到目标位置
+    await page.mouse.up()  # 模拟鼠标释放，完成滑块拖动
+    await page.waitFor(3000)  # 等待3秒，等待滑块验证结果
+
 async def get_distance():   #图形处理函数
     img = cv2.imread('image.png', 0)  # 读取全屏截图，灰度模式
     template = cv2.imread('template.png', 0)  # 读取滑块图片，灰度模式
@@ -177,66 +348,8 @@ async def get_distance():   #图形处理函数
     distance = value + 10 # 计算实际滑动距离，这里根据实际页面比例进行调整，+10像素校准算法这傻逼玩意
     return distance
 
-async def verification(page, notes, usernum, passwd, browser, qltoken):
-    try:
-        await page.waitForSelector('#cpc_img')
-        image_src = await page.Jeval('#cpc_img', 'el => el.getAttribute("src")')  # 获取滑块背景图的地址
-        request.urlretrieve(image_src, 'image.png')  # 下载滑块背景图
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-        width = await page.evaluate('() => { return document.getElementById("cpc_img").clientWidth; }')  #获取网页的图片尺寸
-        height = await page.evaluate('() => { return document.getElementById("cpc_img").clientHeight; }')   #获取网页的图片尺寸
-        image = Image.open('image.png')  #打开图像
-        resized_image = image.resize((width, height))# 调整图像尺寸
-        resized_image.save('image.png')# 保存调整后的图像
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-        template_src = await page.Jeval('#small_img', 'el => el.getAttribute("src")')  # 获取滑块图片的地址
-        request.urlretrieve(template_src, 'template.png')  # 下载滑块图片
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-        width = await page.evaluate('() => { return document.getElementById("small_img").clientWidth; }')  #获取网页的图片尺寸
-        height = await page.evaluate('() => { return document.getElementById("small_img").clientHeight; }')   #获取网页的图片尺寸
-        image = Image.open('template.png')  #打开图像
-        resized_image = image.resize((width, height))# 调整图像尺寸
-        resized_image.save('template.png')# 保存调整后的图像
-        await page.waitFor(100)  # 等待1秒，确保图片处理完成
-        el = await page.querySelector("#captcha_modal > div > div.captcha_footer > div > img") # 定位到滑块按钮
-        box = await el.boundingBox() #获取滑块按钮信息
-        distance = await get_distance()  # 调用前面定义的get_distance函数计算滑块移动距离
-        await page.mouse.move(box['x'] + 10 , box['y'] + 10)
-        await page.mouse.down()  # 模拟鼠标按下
-        await page.mouse.move(box['x'] + distance + random.uniform(8, 25), box['y'], {'steps': 10})  # 模拟鼠标拖动，考虑到实际操作中可能存在的轻微误差和波动，加入随机偏移量
-        await page.waitFor(random.randint(100, 500))  # 随机等待一段时间，模仿人类操作的不确定性
-        await page.mouse.move(box['x'] + distance, box['y'], {'steps': 10})  # 继续拖动滑块到目标位置
-        await page.mouse.up()  # 模拟鼠标释放，完成滑块拖动
-        await page.waitFor(3000)  # 等待3秒，等待滑块验证结果
-    except Exception as e:
-        print(f"滑块验证出错，1秒后自动关闭重试")
-        await page.waitFor(1000)  # 等1秒
-        await browser.close()  #关闭浏览器
-        await validate_logon(notes, usernum, passwd, qltoken)
-        #raise e  # 将异常重新抛出，以便上层代码处理
 
-async def duanxin(page, notes, usernum, passwd, browser):   #短信验证函数
-    if await page.J('.mode-btn.voice-mode'):  #检查是不是要短信验证
-        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/span/a')   #等手机短信认证元素
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-        elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/span/a')  # 选择元素
-        await elements[0].click()  # 点击元素
-        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/button')   #等获取验证码元素
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-        elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/button')  # 选择元素
-        await elements[0].click()  # 点击元素
-        await verification(page, notes, usernum, passwd, browser)    #过滑块
-        code = input("请输入验证码: ")   #交互输入验证码
-        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
-        input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
-        await input_elements[0].type(code)       # 输入验证码
-        await page.waitForXPath('//*[@id="app"]/div/div[2]/a[1]')   #等登录按钮元素
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-        elements = await page.xpath('//*[@id="app"]/div/div[2]/a[1]')  # 选择元素
-        await elements[0].click()  # 点击元素
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-
-async def init_proxy_server(configfile):
+async def init_proxy_server(configfile):                                             #初始化代理
     global argszhi     #定义全局变量
     argszhi = '--no-sandbox', '--disable-setuid-sandbox'
     with open(configfile, 'r', encoding='utf-8') as file:    #设置登录代理
@@ -246,101 +359,27 @@ async def init_proxy_server(configfile):
                 argszhi = '--no-sandbox', '--disable-setuid-sandbox', f'--proxy-server={proxy_server}'
                 return proxy_server
     return None
-async def validate_logon(notes, usernum, passwd, qltoken):
-    print(f"正在登录{notes}的账号")
-    browser = await launch({
-        'headless': WebDisplay,  # 设置为非无头模式，即可视化浏览器界面
-        'args': argszhi,
-    })
-    page = await browser.newPage()  # 打开新页面
-    await page.setViewport({'width': 360, 'height': 640})  # 设置视窗大小
-    await page.goto('https://plogin.m.jd.com/login/login?appid=300&returnurl=https%3A%2F%2Fm.jd.com%2F&source=wq_passport')  # 访问京东登录页面
-    await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-    await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-    await page.click('.J_ping.planBLogin')  # 点击密码登录
-    await page.type('#username', usernum, {'delay': random.randint(60, 121)})  # 输入用户名，模拟键盘输入延迟
-    await page.type('#pwd', passwd, {'delay': random.randint(100, 151)})  # 输入密码，模拟键盘输入延迟
-    await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-    await page.click('.policy_tip-checkbox')  # 点击同意
-    await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-    await page.click('.btn.J_ping.btn-active')  # 点击登录按钮
-    await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
 
-    should_break = False  #定义下面不停循环
-    while True:
-        if await page.J ('#searchWrapper'):  # 检查是否登录成功
-            await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-            await SubmitCK(page, notes, qltoken)  #提交ck
-            await browser.close()  #关闭浏览器
-            break
-        else:
-            if await page.J('.mode-btn.voice-mode'):  #检查是不是要短信验证
-                while True:
-                    choice = input("需要进行短信验证，回1进行验证，回2不验证：\n")
-                    if choice == '1':
-                        await duanxin(page, notes, usernum, passwd, browser)    #调用短信登录函数
-                        break
-                    elif choice == '2':
-                        print("不进行验证，跳过此账户登录")
-                        should_break = True
-                        break
-                    else:
-                        ("无效的选择")
-            else:
-                await verification(page, notes, usernum, passwd, browser, qltoken)  #检测是否要过滑块
-        if should_break:  #检查是否停止循环
-            break
-                
+
 async def main():  # 打开并读取配置文件，主程序
-    global configfile
-    configfile = 'jdck.ini'     #配置文件名称为
-    if not os.path.exists(configfile):     #看看有没有配置文件
-        configdata = [
-    'Displaylogin=0  #是否显示登录操作，1显示，0不显示\n',
-    'qlip=http://192.168.1.1:5700\n',
-    'client_id=*******\n',
-    'client_secret=*******\n',
-    '\n',
-    '********登录代理设置，如无将其删除即可********\n',
-    'proxy_server=http://192.168.2.3:2233\n',
-    '\n',
-    '********上面是配置参数，下面保存账户密码********\n',
-    '备注1#登录账号1#登录密码\n',
-    '备注2#登录账号2#登录密码\n',
-    '备注3#登录账号3#登录密码\n'
-    '账号格式以此类推\n',
-]
-        with open(configfile, 'w', encoding='utf-8') as file:     #打开配置文件
-            file.writelines(configdata)       #写入configdata的内容到配置文件
-            print('已在当前脚本目录下生成了配置文件，请修改后再运行')
-            await asyncio.sleep(10)  # 等待6秒，等待
-    else:
-        global envs
-        await init_chrome()     #初始化chrome
-        qltoken = await initql(configfile)   #初始化青龙获取青龙ck
-        envs = await qlenvs(qltoken)   #获取青龙环境变量(仅JC_COOKIE)
-        await init_proxy_server(configfile)   #初始化登录代理
-        with open(configfile, 'r', encoding='utf-8') as file:   # 读取账号密码
-            for line in file:    # 去除行尾的换行符
-                line = line.strip()    
-                userdata = line.split('#')    # 使用'#'分割字符串
-                if len(userdata) == 3:   #分为三段，如果不满足3段，则跳过此行
-                    notes, usernum, passwd = userdata     # 解包列表到三个变量，并按照指定格式打印
-                    try:
-                        global WebDisplay                             #设置为全局变量
-                        WebDisplay = True                             #默认不显示登录
-                        with open(configfile, 'r', encoding='utf-8') as file:
-                            for line in file:
-                                if 'Displaylogin=1' in line:                             #如果配置文件有Displaylogin=1这个东西
-                                    WebDisplay = False                             #就变更成显示登录操作
-                                    print('当前模式：显示登录操作')
-                                    break
-                    except FileNotFoundError:
-                        print("当前配置不显示登录操作，如果需要显示在配置文件中增加参数Displaylogin=1")
-                    await validate_logon(notes, usernum, passwd, qltoken)    #登录操作，写入ck到文件
-            print("完成全部登录")
-            os.remove('image.png') if os.path.exists('image.png') else None     #删除缓存照片
-            os.remove('template.png') if os.path.exists('template.png') else None     #删除缓存照片
-            await asyncio.sleep(10)  # 等待10秒，等待
+
+    await ifconfigfile()    #检测配置文件并初始化
+    await init_chrome()     #检测初始化chrome
+    await init_web_display()     #初始化WebDisplay
+    await init_proxy_server(configfile)   #初始化登录代理（浏览器args的值）
+
+    global qltoken   #初始化青龙获取青龙ck
+    qltoken = await initql(configfile)      #初始化青龙token
+
+    global envs               #青龙环境全局变量
+    envs = await qlenvs()   #获取青龙环境变量(仅JC_COOKIE)
+
+    await logon_main()    #登录操作，写入ck到文件
+
+    os.remove('image.png') if os.path.exists('image.png') else None     #删除缓存照片
+    os.remove('template.png') if os.path.exists('template.png') else None     #删除缓存照片
+
+    await print_message('完成全部登录')
+    await asyncio.sleep(10)  # 等待10秒，等待
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
