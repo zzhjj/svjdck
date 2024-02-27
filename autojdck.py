@@ -1,6 +1,36 @@
-# 第一次使用会有进度条加载，等待即可，后续无需等待
-# 需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp依赖
-# 版本：2024.2.26
+'''
+第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
+py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
+版本：2024.2.27
+项目地址：https://github.com/517939148yjf/svjdck/
+
+注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，
+建议使用windows版本，定时运行即可。
+
+脚本说明：
+1、脚本用于使用账号密码自动登录京东获取ck，自动更新ck到青龙
+2、建议本地登录不使用代理，第一次使用手机验证码之后一般不需要验证码就可以密码登录
+3、程序仅更新被禁用的ck
+4、脚本有py源码以及windows版本exe程序
+
+添加青龙变量
+jdckpasswd = pt_pin+登录名+密码+备注      #多账户换行
+例如：
+jd_4fbbedd6a4d87#517****48#ya******595#备注
+jd_ZVCWCTvxVxqo#15611167798#123456789#备注
+
+AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，要短信登录）
+
+jdck.ini配置文件
+Displaylogin=0  #是否显示登录操作，1显示，0不显示
+qlip=http://192.168.1.1:5700  #填青龙的ip
+client_id=*******    #填青龙对接应用的client_id
+client_secret=*******     #填青龙对接应用的client_secret
+
+免责声明
+本脚本仅供学习参考，请在下载后24小时内删除，请勿用于非法用途。
+作者不对因使用该脚本造成的任何损失或法律问题负责。
+'''
 import asyncio  # 异步I/O操作库
 import random  #用于模拟延迟输入
 from re import T  # 随机数生成库
@@ -12,6 +42,7 @@ from PIL import Image  #用于图像处理
 import os  #读取配置文件
 import platform  #判断系统类型
 import zipfile  #用于解压文件
+from datetime import datetime #获取时间
 
 async def print_message(message):     #初始化异步print
     print(message)
@@ -25,15 +56,6 @@ async def ifconfigfile():                           #判断有没有配置文件
 'qlip=http://192.168.1.1:5700\n',
 'client_id=*******\n',
 'client_secret=*******\n',
-'\n',
-'********登录代理设置，如无代理将下列内容删除********\n',
-'proxy_server=http://192.168.2.3:2233\n',
-'\n',
-'********上面是配置参数，下面保存账户密码********\n',
-'备注1#登录账号1#登录密码\n',
-'备注2#登录账号2#登录密码\n',
-'备注3#登录账号3#登录密码\n'
-'账号格式以此类推\n',
 ]
         with open(configfile, 'w', encoding='utf-8') as file:     #打开配置文件
             file.writelines(configdata)       #写入configdata的内容到配置文件
@@ -137,8 +159,14 @@ async def qlenvs():   #获取青龙全部jdck变量
             async with session.get(url, headers=headers) as response:                              #获取变量请求
                 rjson = await response.json()                             #解析返回的json数据
                 if rjson['code'] == 200:                                #如果返回code200,根据青龙api文档
-                    jd_cookie_data = [env for env in rjson['data'] if env.get('name') == 'JD_COOKIE']      #选出所有JD_COOKIE的名的变量
-                    return jd_cookie_data                              #返回选出来的值给整个函数
+                    jd_cookie_data = [env for env in rjson['data'] if env.get('status') == 1]            #获取全部过期账号
+                    global pt_pins    #把pt_pins设为全局变量
+                    pt_pins = [value.split('pt_pin=')[1].strip() for env in jd_cookie_data for value in env['value'].split(';') if value.startswith('pt_pin=')]       #把过期账号pt_pin放进列表，用于登录
+                    global jdckpasswd      #把账号密码变量设为全局变量
+                    jdckpasswd = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'jdckpasswd'), None)      #获取账号密码变量
+                    global proxy_server      #把账号密码变量设为全局变量
+                    proxy_server = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'AutoJDCK_DP'), None)      #获取代理变量
+                    return jd_cookie_data  #返回全部过期账号
                 else:
                     print(f"获取环境变量失败：{rjson['message']}")
     except Exception as e:
@@ -153,19 +181,19 @@ async def qlenvs():   #获取青龙全部jdck变量
 
 
 async def logon_main():             #读取配置文件账户密码，登录
-    with open(configfile, 'r', encoding='utf-8') as file:   # 读取账号密码
-        for line in file:    # 去除行尾的换行符
-            line = line.strip()    
-            userdata = line.split('#')    # 使用'#'分割字符串
-            if len(userdata) == 3:   #分为三段，如果不满足3段，则跳过此行
-                notes, usernum, passwd = userdata     # 解包列表到三个变量，并按照指定格式打印
-                await validate_logon(notes, usernum, passwd)
+    for line in jdckpasswd:    # 去除行尾的换行符
+        line = line.strip()    
+        userdata = line.split('#')    # 使用'#'分割字符串
+        if len(userdata) == 4:   #分为三段，如果不满足3段，则跳过此行
+            jd_pt_pin, usernum, passwd, notes= userdata     # 解包列表到三个变量，并按照指定格式打印
+            if jd_pt_pin in pt_pins:      #判断过期账户进行登录
+                await validate_logon(jd_pt_pin, usernum, passwd, notes)   #登录
 
-async def validate_logon(notes, usernum, passwd):                                         #登录操作
-    print(f"正在登录{notes}的账号")
+async def validate_logon(jd_pt_pin, usernum, passwd, notes):                                         #登录操作
+    print(f"正在登录   {notes}   {jd_pt_pin}   的账号")
     browser = await launch({
         'headless': WebDisplay,  # 设置为非无头模式，即可视化浏览器界面
-        'args': argszhi,
+        'args': asgs,
     })
     page = await browser.newPage()  # 打开新页面
     await page.setViewport({'width': 360, 'height': 640})  # 设置视窗大小
@@ -190,6 +218,7 @@ async def validate_logon(notes, usernum, passwd):                               
                         await duanxin1(page)    #调用短信登录函数
                         break
                     elif choice == '2':
+                        await browser.close()  #关闭浏览器
                         print("不进行验证，跳过此账户登录")
                         should_break = True
                         break
@@ -198,15 +227,16 @@ async def validate_logon(notes, usernum, passwd):                               
         except Exception as e:
             pass
 
-        try:                              #输入短信验证
-            if await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input'):
-                await duanxin2(page) 
-        except Exception as e:
-            pass
-
         try:                              #检测是否要过滑块
             if await page.xpath('//*[@id="captcha_modal"]/div/div[3]/div'):
                 await verification(page)  #过滑块
+        except Exception as e:
+            pass
+
+        try:
+            if await page.j('.sure_btn'):             #点击图片验证，无法过
+                await page.reload()                  #刷新浏览器
+                await typeuser(page, usernum, passwd)        #进行账号密码登录
         except Exception as e:
             pass
 
@@ -233,6 +263,9 @@ async def SubmitCK(page, notes):  #提交ck
         elif cookie['name'] == 'pt_pin':                             #找到pt_pin的值
             pt_pin = cookie['value']                             #把值设置到变量pt_pin
     print('{} 登录成功 pt_key={};pt_pin={};'.format(notes, pt_key, pt_pin))    # 打印 pt_key 和 pt_pin 值
+    with open('jdck.log', 'a+', encoding='utf-8') as file:    #打开文件
+        content = '{}   {}   pt_key={};pt_pin={};\n'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), notes, pt_key, pt_pin)   # 构造要写入文件的字符串
+        file.write(content)  # 写入文件
     found_ddhhs = False                             #初始化循环变量，用于后面找不到变量的解决方式
     for env in envs:
         if pt_pin in env["value"]:      #在所有变量值中找pt_pin，找到执行下面的更新ck
@@ -293,18 +326,24 @@ async def duanxin1(page):   #短信验证函数
         await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
         elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/button')  # 选择元素
         await elements[0].click()  # 点击元素
-
-async def duanxin2(page):              #输入短信验证码
-    if await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input'):
-        code = input("请输入验证码: ")   #交互输入验证码
-        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
-        input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
-        await input_elements[0].type(code)       # 输入验证码
-        await page.waitForXPath('//*[@id="app"]/div/div[2]/a[1]')   #等登录按钮元素
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
-        elements = await page.xpath('//*[@id="app"]/div/div[2]/a[1]')  # 选择元素
-        await elements[0].click()  # 点击元素
-        await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
+        await page.waitFor(3000)  # 等待3秒，等待是否要滑块
+        try:                              #检测是否要过滑块
+            if await page.xpath('//*[@id="captcha_modal"]/div/div[3]/div'):
+                await verification(page)  #过滑块
+        except Exception as e:
+            pass
+        try:
+            await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
+            code = input("请输入验证码: ")   #交互输入验证码
+            input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
+            await input_elements[0].type(code)       # 输入验证码
+            await page.waitForXPath('//*[@id="app"]/div/div[2]/a[1]')   #等登录按钮元素
+            await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
+            elements = await page.xpath('//*[@id="app"]/div/div[2]/a[1]')  # 选择元素
+            await elements[0].click()  # 点击元素
+            await page.waitFor(random.randint(2, 3) * 1000)      #随机等待2-3秒
+        except Exception as e:
+            pass
 
 async def verification(page):            #过滑块
     await page.waitForSelector('#cpc_img')
@@ -349,37 +388,31 @@ async def get_distance():   #图形处理函数
     return distance
 
 
-async def init_proxy_server(configfile):                                             #初始化代理
-    global argszhi     #定义全局变量
-    argszhi = '--no-sandbox', '--disable-setuid-sandbox'
-    with open(configfile, 'r', encoding='utf-8') as file:    #设置登录代理
-        for line in file.readlines():
-            if line.startswith('proxy_server='):
-                proxy_server = line.strip().split('=')[1]
-                argszhi = '--no-sandbox', '--disable-setuid-sandbox', f'--proxy-server={proxy_server}'
-                return proxy_server
-    return None
+async def init_proxy_server():                                             #初始化代理
+    if proxy_server:                 #如果有配置代理
+        argszhi = '--no-sandbox', '--disable-setuid-sandbox', f'--proxy-server={proxy_server[0]}'        #设置浏览器参数加了个代理参数
+        return argszhi
+    else:
+        argszhi = '--no-sandbox', '--disable-setuid-sandbox'
+        return argszhi
 
 
 async def main():  # 打开并读取配置文件，主程序
-
     await ifconfigfile()    #检测配置文件并初始化
     await init_chrome()     #检测初始化chrome
     await init_web_display()     #初始化WebDisplay
-    await init_proxy_server(configfile)   #初始化登录代理（浏览器args的值）
-
     global qltoken   #初始化青龙获取青龙ck
     qltoken = await initql(configfile)      #初始化青龙token
-
     global envs               #青龙环境全局变量
     envs = await qlenvs()   #获取青龙环境变量(仅JC_COOKIE)
-
+    global asgs
+    asgs = await init_proxy_server()   #初始化登录代理（浏览器args的值）
+    print(asgs)
     await logon_main()    #登录操作，写入ck到文件
-
     os.remove('image.png') if os.path.exists('image.png') else None     #删除缓存照片
     os.remove('template.png') if os.path.exists('template.png') else None     #删除缓存照片
-
     await print_message('完成全部登录')
-    await asyncio.sleep(10)  # 等待10秒，等待
+    await asyncio.sleep(1000)  # 等待1000秒，等待
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
+
