@@ -1,11 +1,11 @@
+# -*- coding: utf-8 -*-
 '''
 第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
 py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
 版本：2024.2.27
 项目地址：https://github.com/517939148yjf/svjdck/
 
-注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，
-建议使用windows版本，定时运行即可。
+注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
 
 脚本说明：
 1、脚本用于使用账号密码自动登录京东获取ck，自动更新ck到青龙
@@ -228,13 +228,14 @@ async def validate_logon(jd_pt_pin, usernum, passwd, notes):                    
             pass
 
         try:                              #检测是否要过滑块
-            if await page.xpath('//*[@id="captcha_modal"]/div/div[3]/div'):
+            if await page.xpath('//*[@id="small_img"]'):
                 await verification(page)  #过滑块
         except Exception as e:
             pass
 
         try:
-            if await page.j('.sure_btn'):             #点击图片验证，无法过
+            if await page.xpath('//*[@id="captcha_modal"]/div/div[3]/button'):             #点击图片验证，无法过    
+                await page.waitFor(3000)  # 等待3秒
                 await page.reload()                  #刷新浏览器
                 await typeuser(page, usernum, passwd)        #进行账号密码登录
         except Exception as e:
@@ -407,12 +408,11 @@ async def main():  # 打开并读取配置文件，主程序
     envs = await qlenvs()   #获取青龙环境变量(仅JC_COOKIE)
     global asgs
     asgs = await init_proxy_server()   #初始化登录代理（浏览器args的值）
-    print(asgs)
     await logon_main()    #登录操作，写入ck到文件
     os.remove('image.png') if os.path.exists('image.png') else None     #删除缓存照片
     os.remove('template.png') if os.path.exists('template.png') else None     #删除缓存照片
     await print_message('完成全部登录')
-    await asyncio.sleep(1000)  # 等待1000秒，等待
+    await asyncio.sleep(10)  # 等待10秒，等待
 
 asyncio.get_event_loop().run_until_complete(main())  #使用异步I/O循环运行main()函数，启动整个自动登录和滑块验证流程。
 
