@@ -2,7 +2,7 @@
 '''
 第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
 py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
-版本：2024.3.10
+版本：jdck20240311
 项目地址：https://github.com/517939148yjf/svjdck/
 
 注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
@@ -397,8 +397,26 @@ async def init_proxy_server():                                             #初�
         argszhi = '--no-sandbox', '--disable-setuid-sandbox'
         return argszhi
 
+async def get_latest_version():
+    url = f"https://api.github.com/repos/517939148yjf/svjdck/releases/latest"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                return data["tag_name"]
+            else:
+                return "Error retrieving latest version"
+
+
+    
 
 async def main():  # 打开并读取配置文件，主程序
+    os.system('cls' if os.name == 'nt' else 'clear')
+    await print_message('********autojdck自动登陆京东获取ck程序********')
+    await print_message('项目地址：https://github.com/517939148yjf/svjdck')
+    await print_message('当前版本：jdck20240311')
+    tag_name = await get_latest_version()       #获取最新版本
+    await print_message('最新版本：' + tag_name)       #输出版本号
     await ifconfigfile()    #检测配置文件并初始化
     await init_chrome()     #检测初始化chrome
     await init_web_display()     #初始化WebDisplay
