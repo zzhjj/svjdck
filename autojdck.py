@@ -397,7 +397,7 @@ async def init_proxy_server():                                             #初�
         argszhi = '--no-sandbox', '--disable-setuid-sandbox'
         return argszhi
 
-async def get_latest_version():
+async def get_latest_version():                                             #获取版本号函数
     url = f"https://api.github.com/repos/517939148yjf/svjdck/releases/latest"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -405,7 +405,7 @@ async def get_latest_version():
                 data = await response.json()
                 return data["tag_name"]
             else:
-                return "Error retrieving latest version"
+                return "获取最新版本号失败"
 
 
     
