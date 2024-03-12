@@ -2,7 +2,7 @@
 '''
 第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
 py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
-版本：jdck20240311
+版本：jdck20240312
 项目地址：https://github.com/517939148yjf/svjdck/
 
 注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
@@ -14,12 +14,12 @@ py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
 4、脚本有py源码以及windows版本exe程序
 
 添加青龙变量
-jdckpasswd = pt_pin+登录名+密码+备注      #多账户换行
+jdckpasswd = pt_pin#登录名#密码#备注      #多账户换行
 例如：
 jd_4fbbedd6a4d87#517****48#ya******595#备注
 jd_ZVCWCTvxVxqo#15611167798#123456789#备注
 
-AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，要短信登录）
+AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，基本上要验证码）
 
 jdck.ini配置文件
 Displaylogin=0  #是否显示登录操作，1显示，0不显示
@@ -83,8 +83,10 @@ async def init_web_display():                           #初始化浏览器显�
                     WebDisplay = False                             #就变更成显示登录操作
                     print('当前模式：显示登录操作')
                     break
+        if WebDisplay:
+            print("当前配置不显示web登录操作，取消静默登陆，在配置文件中设置参数Displaylogin=1")
     except FileNotFoundError:
-        print("当前配置不显示登录操作，如果需要显示在配置文件中增加参数Displaylogin=1")
+        print("读取配置文件时出错")
 
 async def init_chrome():        #判断chrome是否存在，不存在则下载，仅针对windows
     if platform.system() == 'Windows':
@@ -145,6 +147,7 @@ async def initql(configfile):        #初始化青龙并获取青龙的token
         async with aiohttp.ClientSession() as session:                #获取青龙的token
             async with session.get(f"{qlip}/open/auth/token?client_id={client_id}&client_secret={client_secret}") as response:
                 dicts = await response.json()
+                print('已连接青龙容器...')
             return dicts['data']['token']
     except Exception as e:
         print(f"连接青龙发生异常，请确认配置文件：{e}")
@@ -411,10 +414,11 @@ async def get_latest_version():                                             #获
     
 
 async def main():  # 打开并读取配置文件，主程序
-    os.system('cls' if os.name == 'nt' else 'clear')
-    await print_message('********autojdck自动登陆京东获取ck程序********')
+    os.system('cls' if os.name == 'nt' else 'clear')    #清空屏幕
+    await print_message('**********autojdck自动登陆京东获取ck程序**********')
     await print_message('项目地址：https://github.com/517939148yjf/svjdck')
-    await print_message('当前版本：jdck20240311')
+    await print_message('当前版本：jdck20240312')
+    await print_message('获取最新版本号')
     tag_name = await get_latest_version()       #获取最新版本
     await print_message('最新版本：' + tag_name)       #输出版本号
     await ifconfigfile()    #检测配置文件并初始化
