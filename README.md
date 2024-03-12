@@ -16,7 +16,7 @@ jdckpasswd = pt_pin#登录名#密码#备注      #多账户换行
 jd_4fbbedd6a4d87#517****48#ya******595#备注  
 jd_ZVCWCTvxVxqo#15611167798#123456789#备注  
   
-AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，要短信登录）  
+AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，基本上要验证码）  
   
 jdck.ini配置文件  
 Displaylogin=0  #是否显示登录操作，1显示，0不显示  
