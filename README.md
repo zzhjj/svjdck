@@ -1,6 +1,5 @@
 第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待  
 py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖  
-版本：2024.2.27  
   
 注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。  
   
