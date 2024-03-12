@@ -11,7 +11,7 @@ py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
   
   
 #添加青龙变量  
-jdckpasswd = pt_pin+登录名+密码+备注      #多账户换行  
+jdckpasswd = pt_pin#登录名#密码#备注      #多账户换行  
 例如：  
 jd_4fbbedd6a4d87#517****48#ya******595#备注  
 jd_ZVCWCTvxVxqo#15611167798#123456789#备注  
