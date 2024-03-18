@@ -2,8 +2,7 @@
 '''
 第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
 py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
-版本：jdck20240312
-项目地址：https://github.com/517939148yjf/svjdck/
+项目地址：https://github.com/dsmggm/svjdck/
 
 注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
 
@@ -35,14 +34,16 @@ import asyncio  # 异步I/O操作库
 import random  #用于模拟延迟输入
 from re import T  # 随机数生成库
 import cv2  # OpenCV库，用于图像处理
+import os  #读取配置文件
 from pyppeteer import launch  # pyppeteer库，用于自动化控制浏览器
 import aiohttp   #用于请求青龙
 from urllib import request  # 用于网络请求，这里主要用来下载图片
 from PIL import Image  #用于图像处理
-import os  #读取配置文件
 import platform  #判断系统类型
 import zipfile  #用于解压文件
 from datetime import datetime #获取时间
+
+
 
 async def print_message(message):     #初始化异步print
     print(message)
@@ -63,15 +64,24 @@ async def ifconfigfile():                           #判断有没有配置文件
             await asyncio.sleep(10)  # 等待10秒，等待
             raise SystemExit
 
-async def download_file(url, file_path):       #初始化浏览器下载
-    async with aiohttp.ClientSession() as session:
+
+async def download_file(url, file_path):        #初始化浏览器下载
+    timeout = aiohttp.ClientTimeout(total=60000)  # 设置超时时间
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(url) as response:
             with open(file_path, 'wb') as file:
+                file_size = int(response.headers.get('Content-Length', 0))
+                downloaded_size = 0
+                chunk_size = 1024
                 while True:
-                    chunk = await response.content.read(1024)
+                    chunk = await response.content.read(chunk_size)
                     if not chunk:
                         break
                     file.write(chunk)
+                    downloaded_size += len(chunk)
+                    progress = (downloaded_size / file_size) * 100
+                    print(f'已下载{progress:.2f}%...', end='\r')
+    print('下载完成，进行解压安装....')
 
 async def init_web_display():                           #初始化浏览器显示配置
     global WebDisplay                             #设置为全局变量
@@ -81,10 +91,10 @@ async def init_web_display():                           #初始化浏览器显�
             for line in file:
                 if 'Displaylogin=1' in line:                             #如果配置文件有Displaylogin=1这个东西
                     WebDisplay = False                             #就变更成显示登录操作
-                    print('当前模式：显示登录操作')
+                    print('当前模式：显示web登录图形化界面')
                     break
         if WebDisplay:
-            print("当前配置不显示web登录操作，取消静默登陆，在配置文件中设置参数Displaylogin=1")
+            print("当前配置不显示web登录图形化界面，若要取消静默登陆，在配置文件中设置参数Displaylogin=1")
     except FileNotFoundError:
         print("读取配置文件时出错")
 
@@ -96,21 +106,39 @@ async def init_chrome():        #判断chrome是否存在，不存在则下载�
         if os.path.exists(chrome_exe):
             return
         else:
-            print('判断为第一次使用，正在下载chrome浏览器....')
+            print('貌似第一次使用，未找到chrome，正在下载chrome浏览器....')
+
             chromeurl = 'http://npm.taobao.org/mirrors/chromium-browser-snapshots/Win_x64/588429/chrome-win32.zip'        #定义下载地址
             target_file = 'chrome-win.zip'                                                          #定义下载文件名
             await download_file(chromeurl, target_file)           #下载
             with zipfile.ZipFile(target_file, 'r') as zip_ref:
                 zip_ref.extractall(chrome_dir)
             os.remove(target_file)
-            print('下载完成')
+            print('解压安装完成')
             for item in os.listdir(chmod_dir):              #移动所有文件
                 source_item = os.path.join(chmod_dir, item)
                 destination_item = os.path.join(chrome_dir, item)
                 os.rename(source_item, destination_item)
             await asyncio.sleep(1)  # 等待1秒，等待
     elif platform.system() == 'Linux':
-        return 'linux'
+        chrome_path = os.path.expanduser("~/.local/share/pyppeteer/local-chromium/1181205/chrome-linux/chrome")
+        download_path = os.path.expanduser("~/.local/share/pyppeteer/local-chromium/1181205/")
+        if os.path.isfile(chrome_path):
+            pass
+        else:
+            print('貌似第一次使用，未找到chrome，正在下载chrome浏览器....')
+            print('文件位于github，请耐心等待，如遇到网络问题可到项目地址手动下载')
+            download_url = "https://github.com/dsmggm/svjdck/releases/download/jdck/chrome-linux.zip"
+            if not os.path.exists(download_path):       #如果没有路径就创建路径
+                os.makedirs(download_path, exist_ok=True)  # 创建下载路径
+            target_file = os.path.join(download_path, 'chrome-linux.zip')  # 定义下载文件路径跟文件名
+            await download_file(download_url, target_file)           #下载
+            with zipfile.ZipFile(target_file, 'r') as zip_ref:
+                zip_ref.extractall(download_path)
+            os.remove(target_file)
+            print('删包')
+            os.chmod(chrome_path, 0o755)
+            print('解压安装完成')
     elif platform.system() == 'Darwin':
         return 'mac'
     else:
@@ -167,7 +195,7 @@ async def qlenvs():   #获取青龙全部jdck变量
                     pt_pins = [value.split('pt_pin=')[1].strip() for env in jd_cookie_data for value in env['value'].split(';') if value.startswith('pt_pin=')]       #把过期账号pt_pin放进列表，用于登录
                     global jdckpasswd      #把账号密码变量设为全局变量
                     jdckpasswd = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'jdckpasswd'), None)      #获取账号密码变量
-                    global proxy_server      #把账号密码变量设为全局变量
+                    global proxy_server      #把代理变量设为全局变量
                     proxy_server = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'AutoJDCK_DP'), None)      #获取代理变量
                     return jd_cookie_data  #返回全部过期账号
                 else:
@@ -184,11 +212,18 @@ async def qlenvs():   #获取青龙全部jdck变量
 
 
 async def logon_main():             #读取配置文件账户密码，登录
+    global qltoken   #初始化青龙获取青龙ck
+    qltoken = await initql(configfile)      #初始化青龙token
+    global envs               #青龙环境全局变量
+    envs = await qlenvs()   #获取青龙环境变量(仅JC_COOKIE)
+    await init_web_display()     #初始化WebDisplay
+    global asgs
+    asgs = await init_proxy_server()   #初始化登录代理（浏览器args的值）
     for line in jdckpasswd:    # 去除行尾的换行符
         line = line.strip()    
         userdata = line.split('#')    # 使用'#'分割字符串
         if len(userdata) == 4:   #分为三段，如果不满足3段，则跳过此行
-            jd_pt_pin, usernum, passwd, notes= userdata     # 解包列表到三个变量，并按照指定格式打印
+            jd_pt_pin, usernum, passwd, notes= userdata     # 解包列表到四个变量，并按照指定格式打印
             if jd_pt_pin in pt_pins:      #判断过期账户进行登录
                 await validate_logon(jd_pt_pin, usernum, passwd, notes)   #登录
 
@@ -216,17 +251,26 @@ async def validate_logon(jd_pt_pin, usernum, passwd, notes):                    
         try:                              #检查是不是要短信验证
             if await page.J('.mode-btn.voice-mode'):  
                 while True:
-                    choice = input("需要进行短信验证，回1进行验证，回2不验证：\n")
-                    if choice == '1':
-                        await duanxin1(page)    #调用短信登录函数
-                        break
-                    elif choice == '2':
-                        await browser.close()  #关闭浏览器
-                        print("不进行验证，跳过此账户登录")
+                    try:
+                        choice = await asyncio.wait_for(
+                            asyncio.get_event_loop().run_in_executor(None, input, "需要进行短信验证，回1进行验证，回2不验证：\n"),
+                            timeout=60  # 设置超时时间为60秒
+                        )
+                        if choice == '1':
+                            print("正在发送短信验证")
+                            await duanxin(page)    #调用短信登录函数
+                            break
+                        elif choice == '2':
+                            await browser.close()  #关闭浏览器
+                            print("不进行验证，跳过此账户登录")
+                            should_break = True  
+                            break
+                        else:
+                            print("无效的选择")
+                    except asyncio.TimeoutError:
+                        print("输入超时，跳过登陆")
                         should_break = True
                         break
-                    else:
-                        print("无效的选择")
         except Exception as e:
             pass
 
@@ -239,6 +283,7 @@ async def validate_logon(jd_pt_pin, usernum, passwd, notes):                    
         try:
             if await page.xpath('//*[@id="captcha_modal"]/div/div[3]/button'):             #点击图片验证，无法过    
                 await page.waitFor(3000)  # 等待3秒
+                print("验证出错，正在重试……")
                 await page.reload()                  #刷新浏览器
                 await typeuser(page, usernum, passwd)        #进行账号密码登录
         except Exception as e:
@@ -307,7 +352,7 @@ async def SubmitCK(page, notes):  #提交ck
             {
                 'name': "JD_COOKIE",
                 'value': f"pt_key={pt_key};pt_pin={pt_pin};",
-                "remarks": notes,
+                "remarks": {pt_pin} + '#' + notes,
             }
         ]
         async with aiohttp.ClientSession() as session:
@@ -321,7 +366,7 @@ async def SubmitCK(page, notes):  #提交ck
                     print(f"新建{notes}环境变量失败：{rjson['message']}")
                     return False
 
-async def duanxin1(page):   #短信验证函数
+async def duanxin(page):   #短信验证函数
         await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/span/a')   #等手机短信认证元素
         await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
         elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/span/a')  # 选择元素
@@ -338,7 +383,7 @@ async def duanxin1(page):   #短信验证函数
             pass
         try:
             await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
-            code = input("请输入验证码: ")   #交互输入验证码
+            code = input("验证码已发送，请输入验证码: ")   #交互输入验证码
             input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
             await input_elements[0].type(code)       # 输入验证码
             await page.waitForXPath('//*[@id="app"]/div/div[2]/a[1]')   #等登录按钮元素
@@ -401,14 +446,15 @@ async def init_proxy_server():                                             #初�
         return argszhi
 
 async def get_latest_version():                                             #获取版本号函数
-    url = f"https://api.github.com/repos/517939148yjf/svjdck/releases/latest"
+    url = f"https://api.github.com/repos/dsmggm/svjdck/releases/latest"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200:
                 data = await response.json()
-                return data["tag_name"]
+                tag_name = data["tag_name"]
+                print('最新版本：' + tag_name)
             else:
-                return "获取最新版本号失败"
+                print('获取最新版本号失败')
 
 
     
@@ -416,20 +462,11 @@ async def get_latest_version():                                             #获
 async def main():  # 打开并读取配置文件，主程序
     os.system('cls' if os.name == 'nt' else 'clear')    #清空屏幕
     await print_message('**********autojdck自动登陆京东获取ck程序**********')
-    await print_message('项目地址：https://github.com/517939148yjf/svjdck')
+    await print_message('项目地址：https://github.com/dsmggm/svjdck')
     await print_message('当前版本：jdck20240312')
-    await print_message('获取最新版本号')
-    tag_name = await get_latest_version()       #获取最新版本
-    await print_message('最新版本：' + tag_name)       #输出版本号
+    await get_latest_version()       #获取最新版本
     await ifconfigfile()    #检测配置文件并初始化
     await init_chrome()     #检测初始化chrome
-    await init_web_display()     #初始化WebDisplay
-    global qltoken   #初始化青龙获取青龙ck
-    qltoken = await initql(configfile)      #初始化青龙token
-    global envs               #青龙环境全局变量
-    envs = await qlenvs()   #获取青龙环境变量(仅JC_COOKIE)
-    global asgs
-    asgs = await init_proxy_server()   #初始化登录代理（浏览器args的值）
     await logon_main()    #登录操作，写入ck到文件
     os.remove('image.png') if os.path.exists('image.png') else None     #删除缓存照片
     os.remove('template.png') if os.path.exists('template.png') else None     #删除缓存照片
