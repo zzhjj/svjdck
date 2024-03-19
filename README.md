@@ -14,21 +14,21 @@
 定时任务参考https://blog.csdn.net/renluborenlubo/article/details/128655711  
 
 # linux使用说明(仅x86，其它架构自行测试)
-设置pip源
+#### 设置pip源
 ```
 pip config set global.extra-index-url "http://mirrors.aliyun.com/pypi/simple/ https://pypi.tuna.tsinghua.edu.cn/simple/"
 ```
 
-安装python依赖
+#### 安装python依赖
 ```
 pip install --break-system-packages pyppeteer Pillow asyncio aiohttp opencv-python
 `````
 
-在无桌面环境下运行 Pyppeteer 时，会出现报错的情况。这是因为无头浏览器 Chrome 需要在有可视化界面的环境下运行。在无桌面环境下，缺少了图形渲染所需的相关库和设备驱动，导致无法正常启动 Chrome。
-  
-  
-  
-安装桌面环境：
+#### 在无桌面环境下运行 Pyppeteer 时，会出现报错的情况。这是因为无头浏览器 Chrome 需要在有可视化界面的环境下运行。在无桌面环境下，缺少了图形渲染所需的相关库和设备驱动，导致无法正常启动 Chrome。  
+！！！！安装完之后要重启系统！！！！  
+或者调用桌面相关的服务  
+    
+#### 安装桌面环境：
 Ubuntu/Debian 分支
 ```
 apt install -y  gnome
@@ -37,7 +37,18 @@ CentOS/Fedora/RedHat 分支
 ```
 yum install -y gnome
 ```
-也可以使用其它桌面环境
+也可以使用其它桌面环境,自行选择  
+
+### 定时运行  
+```
+echo "*/30 * * * * python3.11 /root/autojdck.py" | crontab -  #半小时运行一次，python命令改成自己的，py脚本路径也改自己的
+```
+注意：这种方式会覆盖当前用户的全部定时任务，所以请确保你已经包含了所有需要保留的定时任务。  
+
+### chrome浏览器手动下载地址(非必要)
+https://github.com/517939148yjf/svjdck/releases/download/jdck/chrome-linux.zip  
+解压到~/.local/share/pyppeteer/local-chromium/1181205/  
+确保1181205/chrome-linux/chrome有执行权限之后再运行脚本  
 
 # 添加青龙变量
 jdckpasswd = 登陆号码#密码#备注      #多账户换行  
@@ -52,10 +63,11 @@ client_id=*******    #填青龙对接应用的client_id
 client_secret=*******     #填青龙对接应用的client_secret  
 
 
-## 废案：
-代理登陆变量
-AutoJDCK_DP = http://192.168.2.1:22332    #设置登录代理（不建议设置代理，基本上要验证码）
-
+##### 废案：
+```
+代理登陆变量  
+AutoJDCK_DP = http://192.168.2.1:22332    #设置登录代理（不建议设置代理，基本上要验证码）  
+```
 
 # 免责声明  
 本脚本仅供学习参考，请在下载后24小时内删除，请勿用于非法用途。  
