@@ -416,7 +416,7 @@ async def duanxin(page):   #短信验证函数
             pass
         try:
             await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
-            code = get_verification_code()   #交互输入验证码
+            code = await get_verification_code()   #交互输入验证码
             input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
             await input_elements[0].type(code)       # 输入验证码
             await page.waitForXPath('//*[@id="app"]/div/div[2]/a[1]')   #等登录按钮元素
