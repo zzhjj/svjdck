@@ -65,7 +65,7 @@ client_id=*******    #填青龙对接应用的client_id
 client_secret=*******     #填青龙对接应用的client_secret  
 
 
-##### 废案：
+### 废案：
 ```
 代理登陆变量  
 AutoJDCK_DP = http://192.168.2.1:22332    #设置登录代理（不建议设置代理，基本上要验证码）  
