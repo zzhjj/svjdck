@@ -12,7 +12,7 @@
   
 # windows使用说明
 运行exe即可，无需安装依赖等  
-如果电脑有python环境，可能会遇到问题  
+如果windows有python环境，可能会遇到问题  
 windows定时任务参考https://blog.csdn.net/renluborenlubo/article/details/128655711  
 
 # linux使用说明(仅x86，其它架构自行测试)
