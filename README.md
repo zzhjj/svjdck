@@ -8,10 +8,12 @@
 6、linux需要桌面环境，比如gnome用于图形处理  
 7、第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待  
 8、此脚本适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。  
+9、脚本基于3.12开发，其它版本python自行测试  
   
 # windows使用说明
 运行exe即可，无需安装依赖等  
-定时任务参考https://blog.csdn.net/renluborenlubo/article/details/128655711  
+如果电脑有python环境，可能会遇到问题  
+windows定时任务参考https://blog.csdn.net/renluborenlubo/article/details/128655711  
 
 # linux使用说明(仅x86，其它架构自行测试)
 #### 设置pip源
