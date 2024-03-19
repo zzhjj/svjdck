@@ -53,7 +53,7 @@ https://github.com/517939148yjf/svjdck/releases/download/jdck/chrome-linux.zip
 确保1181205/chrome-linux/chrome有执行权限之后再运行脚本  
 
 # 添加青龙变量
-jdckpasswd = 登陆号码#密码#备注      #多账户换行  
+jdckpasswd = 登陆号码#密码#备注          #多账户换行  
 例如：  
 517123248#ya21udb95#我是备注1  
 15611167798#123456789#我是备注2  
