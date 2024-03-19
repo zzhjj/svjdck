@@ -1,24 +1,23 @@
 # -*- coding: utf-8 -*-
 '''
-第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
-py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
-项目地址：https://github.com/dsmggm/svjdck/
 
-注：此脚本不适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
+项目地址：https://github.com/dsmggm/svjdck/
 
 脚本说明：
 1、脚本用于使用账号密码自动登录京东获取ck，自动更新ck到青龙
-2、建议本地登录不使用代理，第一次使用手机验证码之后一般不需要验证码就可以密码登录
+2、建议本地登录，不建议使用代理，第一次使用手机验证码之后一般不需要验证码就可以密码登录
 3、程序仅更新被禁用的ck
 4、脚本有py源码以及windows版本exe程序
+5、py脚本需要opencv-python、pyppeteer、Pillow、asyncio、aiohttp等依赖
+6、linux需要桌面环境，比如gnome用于图形处理
+7、第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
+8、此脚本适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
 
 添加青龙变量
-jdckpasswd = pt_pin#登录名#密码#备注      #多账户换行
+jdckpasswd = 登陆号码#密码#备注      #多账户换行
 例如：
-jd_4fbbedd6a4d87#517****48#ya******595#备注
-jd_ZVCWCTvxVxqo#15611167798#123456789#备注
-
-AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，基本上要验证码）
+517123248#ya21udb95#我是备注1
+15611167798#123456789#我是备注2
 
 jdck.ini配置文件
 Displaylogin=0  #是否显示登录操作，1显示，0不显示
@@ -26,9 +25,13 @@ qlip=http://192.168.1.1:5700  #填青龙的ip
 client_id=*******    #填青龙对接应用的client_id
 client_secret=*******     #填青龙对接应用的client_secret
 
+废案：AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，基本上要验证码）
+
+
 免责声明
 本脚本仅供学习参考，请在下载后24小时内删除，请勿用于非法用途。
 作者不对因使用该脚本造成的任何损失或法律问题负责。
+
 '''
 import asyncio  # 异步I/O操作库
 import random  #用于模拟延迟输入
@@ -42,6 +45,7 @@ from PIL import Image  #用于图像处理
 import platform  #判断系统类型
 import zipfile  #用于解压文件
 from datetime import datetime #获取时间
+
 
 
 
@@ -190,14 +194,17 @@ async def qlenvs():   #获取青龙全部jdck变量
             async with session.get(url, headers=headers) as response:                              #获取变量请求
                 rjson = await response.json()                             #解析返回的json数据
                 if rjson['code'] == 200:                                #如果返回code200,根据青龙api文档
-                    jd_cookie_data = [env for env in rjson['data'] if env.get('status') == 1]            #获取全部过期账号
-                    global pt_pins    #把pt_pins设为全局变量
-                    pt_pins = [value.split('pt_pin=')[1].strip() for env in jd_cookie_data for value in env['value'].split(';') if value.startswith('pt_pin=')]       #把过期账号pt_pin放进列表，用于登录
+                    #data = rjson['data']
+                    jd_cookie_data = [env for env in rjson['data'] if env.get('name') == 'JD_COOKIE']            #获取全部jd的变量
+                    #global pt_pins    #把pt_pins设为全局变量
+                    #pt_pins = [value.split('pt_pin=')[1].strip() for env in jd_cookie_data for value in env['value'].split(';') if value.startswith('pt_pin=')]       #把过期账号pt_pin放进列表，用于登录
+                    global notess      #把备注设置为全部变量
+                    notess = [env['remarks'] for env in rjson['data'] if env.get('name') == 'JD_COOKIE' and env.get('status') == 0]             #找到所有name为JD_COOKIE，status为0的字典列表，然后把remarks的值放进notess
                     global jdckpasswd      #把账号密码变量设为全局变量
                     jdckpasswd = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'jdckpasswd'), None)      #获取账号密码变量
                     global proxy_server      #把代理变量设为全局变量
                     proxy_server = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'AutoJDCK_DP'), None)      #获取代理变量
-                    return jd_cookie_data  #返回全部过期账号
+                    return jd_cookie_data
                 else:
                     print(f"获取环境变量失败：{rjson['message']}")
     except Exception as e:
@@ -222,13 +229,31 @@ async def logon_main():             #读取配置文件账户密码，登录
     for line in jdckpasswd:    # 去除行尾的换行符
         line = line.strip()    
         userdata = line.split('#')    # 使用'#'分割字符串
-        if len(userdata) == 4:   #分为三段，如果不满足3段，则跳过此行
-            jd_pt_pin, usernum, passwd, notes= userdata     # 解包列表到四个变量，并按照指定格式打印
-            if jd_pt_pin in pt_pins:      #判断过期账户进行登录
-                await validate_logon(jd_pt_pin, usernum, passwd, notes)   #登录
+        if len(userdata) == 3:   #分为三段，如果不满足3段，则跳过此行
+            usernum, passwd, notes= userdata     # 解包列表到四个变量，并按照指定格式打印
+            if notes not in notess:        # 判断是否不存在 "notes" 在 notess 中
+                await validate_logon(usernum, passwd, notes)   #登录
 
-async def validate_logon(jd_pt_pin, usernum, passwd, notes):                                         #登录操作
-    print(f"正在登录   {notes}   {jd_pt_pin}   的账号")
+async def get_user_choice():            #短信验证选择
+    choice = None
+    while choice not in ['1', '2']:
+        try:
+            choice = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(None, input, "需要进行短信验证，回1进行验证，回2不验证：  "),
+                timeout=120
+            )
+            if choice not in ['1', '2']:
+                print("无效输入，请只输入1或2，请重新输入：  ")
+        except asyncio.TimeoutError:
+            print("\n输入超时，跳过登陆")
+            choice = '2'
+            break
+        except Exception as e:
+            print("发生错误：", e)
+    return choice
+
+async def validate_logon(usernum, passwd, notes):                                         #登录操作
+    print(f"正在登录 {notes} {usernum} 的账号")
     browser = await launch({
         'headless': WebDisplay,  # 设置为非无头模式，即可视化浏览器界面
         'args': asgs,
@@ -249,13 +274,10 @@ async def validate_logon(jd_pt_pin, usernum, passwd, notes):                    
             pass
 
         try:                              #检查是不是要短信验证
-            if await page.J('.mode-btn.voice-mode'):  
+            if await page.J('.sub-title'):       #<p data-v-4c407d20="" class="sub-title">选择认证方式</p>
                 while True:
                     try:
-                        choice = await asyncio.wait_for(
-                            asyncio.get_event_loop().run_in_executor(None, input, "需要进行短信验证，回1进行验证，回2不验证：\n"),
-                            timeout=60  # 设置超时时间为60秒
-                        )
+                        choice = await get_user_choice()            #调用选择函数
                         if choice == '1':
                             print("正在发送短信验证")
                             await duanxin(page)    #调用短信登录函数
@@ -270,6 +292,7 @@ async def validate_logon(jd_pt_pin, usernum, passwd, notes):                    
                     except asyncio.TimeoutError:
                         print("输入超时，跳过登陆")
                         should_break = True
+                        sys.stdin.close()  # 关闭输入流
                         break
         except Exception as e:
             pass
@@ -317,7 +340,7 @@ async def SubmitCK(page, notes):  #提交ck
         file.write(content)  # 写入文件
     found_ddhhs = False                             #初始化循环变量，用于后面找不到变量的解决方式
     for env in envs:
-        if pt_pin in env["value"]:      #在所有变量值中找pt_pin，找到执行下面的更新ck
+        if notes in env["remarks"]:      #在所有变量值中找remarks，找到执行下面的更新ck
             envid = env["id"]                             #把找到的id设为envid的变量值
             remarks = env["remarks"]                             #同上
             found_ddhhs = True                             #把变量设为True，停下循环
@@ -352,7 +375,7 @@ async def SubmitCK(page, notes):  #提交ck
             {
                 'name': "JD_COOKIE",
                 'value': f"pt_key={pt_key};pt_pin={pt_pin};",
-                "remarks": {pt_pin} + '#' + notes,
+                "remarks": notes,
             }
         ]
         async with aiohttp.ClientSession() as session:
@@ -366,8 +389,18 @@ async def SubmitCK(page, notes):  #提交ck
                     print(f"新建{notes}环境变量失败：{rjson['message']}")
                     return False
 
+
+async def get_verification_code():  # 交互输入验证码
+    code = None
+    while True:
+        code = input("验证码已发送，请输入验证码: ")
+        if len(code) == 6 and code.isdigit():
+            break
+        else:
+            print("请输入6位数字作为验证码，请重新输入。")
+    return code
 async def duanxin(page):   #短信验证函数
-        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/span/a')   #等手机短信认证元素
+        await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/span/a')   #等手机短信认证元素  //*[@id="app"]/div/div[2]
         await page.waitFor(random.randint(1, 3) * 1000)      #随机等待1-3秒
         elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/span/a')  # 选择元素
         await elements[0].click()  # 点击元素
@@ -383,7 +416,7 @@ async def duanxin(page):   #短信验证函数
             pass
         try:
             await page.waitForXPath('//*[@id="app"]/div/div[2]/div[2]/div/input')   # 等待输入框元素出现
-            code = input("验证码已发送，请输入验证码: ")   #交互输入验证码
+            code = get_verification_code()   #交互输入验证码
             input_elements = await page.xpath('//*[@id="app"]/div/div[2]/div[2]/div/input')    # 选择输入框元素
             await input_elements[0].type(code)       # 输入验证码
             await page.waitForXPath('//*[@id="app"]/div/div[2]/a[1]')   #等登录按钮元素
@@ -463,7 +496,7 @@ async def main():  # 打开并读取配置文件，主程序
     os.system('cls' if os.name == 'nt' else 'clear')    #清空屏幕
     await print_message('**********autojdck自动登陆京东获取ck程序**********')
     await print_message('项目地址：https://github.com/dsmggm/svjdck')
-    await print_message('当前版本：jdck20240312')
+    await print_message('当前版本：jdck20240319')
     await get_latest_version()       #获取最新版本
     await ifconfigfile()    #检测配置文件并初始化
     await init_chrome()     #检测初始化chrome
