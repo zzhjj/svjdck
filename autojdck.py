@@ -480,14 +480,17 @@ async def init_proxy_server():                                             #初�
 
 async def get_latest_version():                                             #获取版本号函数
     url = f"https://api.github.com/repos/dsmggm/svjdck/releases/latest"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                tag_name = data["tag_name"]
-                print('最新版本：' + tag_name)
-            else:
-                print('获取最新版本号失败')
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    tag_name = data["tag_name"]
+                    print('最新版本：' + tag_name)
+                else:
+                    print('获取最新版本号失败')
+    except aiohttp.ClientError as e:
+        print(f'最新版本：你网络不行啊老弟，都连不上github，怎么获取最新版本号')
 
 
     
@@ -496,7 +499,7 @@ async def main():  # 打开并读取配置文件，主程序
     os.system('cls' if os.name == 'nt' else 'clear')    #清空屏幕
     await print_message('**********autojdck自动登陆京东获取ck程序**********')
     await print_message('项目地址：https://github.com/dsmggm/svjdck')
-    await print_message('当前版本：jdck20240319')
+    await print_message('当前版本：jdck20240320')
     await get_latest_version()       #获取最新版本
     await ifconfigfile()    #检测配置文件并初始化
     await init_chrome()     #检测初始化chrome
