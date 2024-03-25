@@ -53,16 +53,18 @@ https://github.com/517939148yjf/svjdck/releases/download/jdck/chrome-linux.zip
 确保1181205/chrome-linux/chrome有执行权限之后再运行脚本  
 
 # 添加青龙变量
-jdckpasswd = 登陆号码#密码#备注          #多账户换行  
-例如：  
-517123248#ya21udb95#我是备注1  
-15611167798#123456789#我是备注2  
+jdckpasswd = 
 
 # jdck.ini配置文件位于脚本/程序同目录下
 Displaylogin=0  #是否显示登录操作，1显示，0不显示  
 qlip=http://192.168.1.1:5700  #填青龙的ip  
 client_id=*******    #填青龙对接应用的client_id  
 client_secret=*******     #填青龙对接应用的client_secret  
+
+登陆号码#密码#备注          #多账户换行  
+例如：  
+517123248#ya21udb95#我是备注1  
+15611167798#123456789#我是备注2  
 
 
 ### 废案：
