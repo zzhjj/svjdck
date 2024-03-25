@@ -12,18 +12,17 @@
 6、linux需要桌面环境，比如gnome用于图形处理
 7、第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
 8、此脚本适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
-
-添加青龙变量
-jdckpasswd = 登陆号码#密码#备注      #多账户换行
-例如：
-517123248#ya21udb95#我是备注1
-15611167798#123456789#我是备注2
+9、脚本基于python3.12.1编写，目前3.11可以正常使用，其它版本未测试
 
 jdck.ini配置文件
 Displaylogin=0  #是否显示登录操作，1显示，0不显示
 qlip=http://192.168.1.1:5700  #填青龙的ip
 client_id=*******    #填青龙对接应用的client_id
 client_secret=*******     #填青龙对接应用的client_secret
+
+登陆号码#密码#备注      #多账户换行
+517123248#ya21udb95#我是备注1
+15611167798#123456789#我是备注2
 
 废案：AutoJDCK_DP = http://192.168.2.3:2233      #设置登录代理（不建议设置代理，基本上要验证码）
 
@@ -118,11 +117,11 @@ async def init_chrome():        #判断chrome是否存在，不存在则下载�
             with zipfile.ZipFile(target_file, 'r') as zip_ref:
                 zip_ref.extractall(chrome_dir)
             os.remove(target_file)
-            print('解压安装完成')
             for item in os.listdir(chmod_dir):              #移动所有文件
                 source_item = os.path.join(chmod_dir, item)
                 destination_item = os.path.join(chrome_dir, item)
                 os.rename(source_item, destination_item)
+            print('解压安装完成')
             await asyncio.sleep(1)  # 等待1秒，等待
     elif platform.system() == 'Linux':
         chrome_path = os.path.expanduser("~/.local/share/pyppeteer/local-chromium/1181205/chrome-linux/chrome")
@@ -148,7 +147,7 @@ async def init_chrome():        #判断chrome是否存在，不存在则下载�
     else:
         return 'unknown'
 
-async def initql(configfile):        #初始化青龙并获取青龙的token
+async def initql():        #初始化青龙并获取青龙的token
     global qlip  # 声明这个是全局变量
     client_id = None   #初始化变量
     client_secret = None   #初始化变量
@@ -194,14 +193,11 @@ async def qlenvs():   #获取青龙全部jdck变量
             async with session.get(url, headers=headers) as response:                              #获取变量请求
                 rjson = await response.json()                             #解析返回的json数据
                 if rjson['code'] == 200:                                #如果返回code200,根据青龙api文档
-                    #data = rjson['data']
                     jd_cookie_data = [env for env in rjson['data'] if env.get('name') == 'JD_COOKIE']            #获取全部jd的变量
-                    #global pt_pins    #把pt_pins设为全局变量
-                    #pt_pins = [value.split('pt_pin=')[1].strip() for env in jd_cookie_data for value in env['value'].split(';') if value.startswith('pt_pin=')]       #把过期账号pt_pin放进列表，用于登录
                     global notess      #把备注设置为全部变量
                     notess = [env['remarks'] for env in rjson['data'] if env.get('name') == 'JD_COOKIE' and env.get('status') == 0]             #找到所有name为JD_COOKIE，status为0的字典列表，然后把remarks的值放进notess
-                    global jdckpasswd      #把账号密码变量设为全局变量
-                    jdckpasswd = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'jdckpasswd'), None)      #获取账号密码变量
+                    #global jdckpasswd      #把账号密码变量设为全局变量
+                    #jdckpasswd = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'jdckpasswd'), None)      #获取账号密码变量
                     global proxy_server      #把代理变量设为全局变量
                     proxy_server = next((env['value'].strip().split('\n') for env in rjson['data'] if env.get('name') == 'AutoJDCK_DP'), None)      #获取代理变量
                     return jd_cookie_data
@@ -220,19 +216,20 @@ async def qlenvs():   #获取青龙全部jdck变量
 
 async def logon_main():             #读取配置文件账户密码，登录
     global qltoken   #初始化青龙获取青龙ck
-    qltoken = await initql(configfile)      #初始化青龙token
+    qltoken = await initql()      #初始化青龙token
     global envs               #青龙环境全局变量
     envs = await qlenvs()   #获取青龙环境变量(仅JC_COOKIE)
     await init_web_display()     #初始化WebDisplay
     global asgs
     asgs = await init_proxy_server()   #初始化登录代理（浏览器args的值）
-    for line in jdckpasswd:    # 去除行尾的换行符
-        line = line.strip()    
-        userdata = line.split('#')    # 使用'#'分割字符串
-        if len(userdata) == 3:   #分为三段，如果不满足3段，则跳过此行
-            usernum, passwd, notes= userdata     # 解包列表到四个变量，并按照指定格式打印
-            if notes not in notess:        # 判断是否不存在 "notes" 在 notess 中
-                await validate_logon(usernum, passwd, notes)   #登录
+    with open(configfile, 'r', encoding='utf-8') as jdckpasswd:
+        for line in jdckpasswd:    # 去除行尾的换行符
+            line = line.strip()    
+            userdata = line.split('#')    # 使用'#'分割字符串
+            if len(userdata) == 3:   #分为三段，如果不满足3段，则跳过此行
+                usernum, passwd, notes= userdata     # 解包列表到四个变量，并按照指定格式打印
+                if notes not in notess:        # 判断是否不存在 "notes" 在 notess 中
+                    await validate_logon(usernum, passwd, notes)   #登录
 
 async def get_user_choice():            #短信验证选择
     choice = None
@@ -292,7 +289,6 @@ async def validate_logon(usernum, passwd, notes):                               
                     except asyncio.TimeoutError:
                         print("输入超时，跳过登陆")
                         should_break = True
-                        sys.stdin.close()  # 关闭输入流
                         break
         except Exception as e:
             pass
@@ -498,8 +494,9 @@ async def get_latest_version():                                             #获
 async def main():  # 打开并读取配置文件，主程序
     os.system('cls' if os.name == 'nt' else 'clear')    #清空屏幕
     await print_message('**********autojdck自动登陆京东获取ck程序**********')
+    await print_message('注：账户密码已从青龙变量迁移到jdck.ini文件中，在配置文件中进行账密设置')
     await print_message('项目地址：https://github.com/dsmggm/svjdck')
-    await print_message('当前版本：jdck20240320')
+    await print_message('当前版本：jdck20240325')
     await get_latest_version()       #获取最新版本
     await ifconfigfile()    #检测配置文件并初始化
     await init_chrome()     #检测初始化chrome
