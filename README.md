@@ -9,14 +9,17 @@
 7、第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待  
 8、此脚本适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。  
 9、脚本基于3.12开发，其它版本python自行测试  
+10、脚本需要青龙应用权限——环境变量跟脚本管理  
+
   
 # windows使用说明
 运行exe即可，无需安装依赖等  
 如果windows有python环境，可能会遇到问题  
 windows定时任务参考https://blog.csdn.net/renluborenlubo/article/details/128655711  
 
-# linux使用说明(仅x86，其它架构自行测试)
-#### 设置pip源
+# linux使用说明(仅x86，其它架构自行测试)  
+## 已知问题：一直要短信验证，不建议用  
+#### 设置pip源  
 ```
 pip config set global.extra-index-url "http://mirrors.aliyun.com/pypi/simple/ https://pypi.tuna.tsinghua.edu.cn/simple/"
 ```
