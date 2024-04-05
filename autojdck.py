@@ -13,6 +13,7 @@
 7、第一次使用会下载chrome浏览器，生成jdck.ini配置文件，等待即可，后续无需等待
 8、此脚本适合于青龙内部运行，因青龙大部分不支持opencv插件，仅支持linux以及windows运行，建议使用windows版本，定时运行即可。
 9、脚本基于python3.12.1编写，目前3.11可以正常使用，其它版本未测试
+10、脚本需要青龙应用权限——环境变量跟脚本管理
 
 jdck.ini配置文件
 Displaylogin=0  #是否显示登录操作，1显示，0不显示
@@ -60,6 +61,8 @@ async def ifconfigfile():                           #判断有没有配置文件
 'qlip=http://192.168.1.1:5700\n',
 'client_id=*******\n',
 'client_secret=*******\n',
+'517123248#ya21udb95#我是备注1\n',
+'15611167798#123456789#我是备注2\n',
 ]
         with open(configfile, 'w', encoding='utf-8') as file:     #打开配置文件
             file.writelines(configdata)       #写入configdata的内容到配置文件
@@ -208,6 +211,30 @@ async def qlenvs():   #获取青龙全部jdck变量
 
 
 
+async def push_message(qltoken, notes):
+    js_file = 'JdckNotify.js'
+    push_data = """
+const notify = require('./sendNotify')
+const message = ["{} 账号需要验证登录"];
+notify.sendNotify(`JDCK登录验证通知`, message)
+""".format(notes)       #脚本内容，{}是notes变量内容
+    data = {
+        "filename": js_file,
+        "path": "./",
+        "content": push_data    #脚本内容，如上push_data
+    }
+    async with aiohttp.ClientSession() as session:                             #推送运行脚本
+        url = f"{qlip}/open/scripts/run"
+        try:
+            async with session.put(url, headers={'Authorization': 'Bearer ' + qltoken}, json=data) as response:            #更新变量的api
+                rjson = await response.json()
+                if rjson['code'] == 200:
+                    print('推送验证通知')
+                else:
+                    print('推送验证通知失败,请检查青龙应用《脚本管理》权限')
+        except Exception as e:
+            print('推送验证通知失败,请检查青龙连接状态和应用《脚本管理》权限', e)
+
 
 
 
@@ -266,12 +293,14 @@ async def validate_logon(usernum, passwd, notes):                               
             if await page.J ('#searchWrapper'):
                 await SubmitCK(page, notes)  #提交ck
                 await browser.close()  #关闭浏览器
+                should_break = True
                 break
         except Exception as e:
             pass
 
         try:                              #检查是不是要短信验证
             if await page.J('.sub-title'):       #<p data-v-4c407d20="" class="sub-title">选择认证方式</p>
+                await push_message(qltoken, notes)          #推送需要验证登陆通知
                 while True:
                     try:
                         choice = await get_user_choice()            #调用选择函数
@@ -495,8 +524,9 @@ async def main():  # 打开并读取配置文件，主程序
     os.system('cls' if os.name == 'nt' else 'clear')    #清空屏幕
     await print_message('**********autojdck自动登陆京东获取ck程序**********')
     await print_message('注：账户密码已从青龙变量迁移到jdck.ini文件中，在配置文件中进行账密设置')
+    await print_message('脚本需要青龙应用权限——环境变量跟脚本管理')
     await print_message('项目地址：https://github.com/dsmggm/svjdck')
-    await print_message('当前版本：jdck20240325')
+    await print_message('当前版本：jdck20240405')
     await get_latest_version()       #获取最新版本
     await ifconfigfile()    #检测配置文件并初始化
     await init_chrome()     #检测初始化chrome
